@@ -1,0 +1,31 @@
+{
+  "scripts": {
+    "update": "npm install && npm run copy_files",
+    "copy_files": "npm run copy_files_jquery && npm run copy_files_bootstrap_popper",
+    "copy_files_jquery": "cp node_modules/jquery/dist/jquery.min.js js/node/",
+    "copy_files_bootstrap_popper": "cp node_modules/bootstrap/dist/js/bootstrap.bundle.min.js js/node/ && cp node_modules/bootstrap/dist/css/bootstrap.min.css css/node/"
+  },
+  "//scripts (imported) (no idea what these do)": {
+    "build": "npm run css",
+    "css-compile": "sass --style compressed --source-map --embed-sources --no-error-css --load-path=node_modules scss/:css/",
+    "css-lint": "stylelint scss/",
+    "css-prefix": "postcss --replace css/styles.css --use autoprefixer --map",
+    "css": "npm-run-all css-compile css-prefix",
+    "test": "npm-run-all css-lint css"
+  },
+  "devDependencies": {
+    "chrome-types": "^0.1.345",
+    "autoprefixer": "^10.4.20",
+    "npm-run-all": "^4.1.5",
+    "postcss": "^8.4.47",
+    "postcss-cli": "^11.0.0",
+    "sass": "^1.79.4",
+    "stylelint": "^16.9.0",
+    "stylelint-config-twbs-bootstrap": "^15.0.0"
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.3",
+    "jquery": "^3.7.1",
+    "popper.js": "^1.16.1"
+  }
+}

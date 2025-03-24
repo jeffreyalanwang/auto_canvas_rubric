@@ -1,0 +1,91 @@
+<html>
+
+  <head>
+    <!-- imports -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
+    <!-- node imports -- [node run copy_files] -->
+    <script defer src="/js/node/jquery.min.js"></script>
+    <link rel="stylesheet" href="/css/node/bootstrap.min.css">
+    <script defer src="/js/node/bootstrap.bundle.min.js"></script>
+
+    <!-- local -->
+    <link rel="stylesheet" href="/css/popup.css">
+    <script defer src="/js/popup.js"></script>
+  </head>
+
+  <body>
+    <div id="vertical-page-flex">
+      <h1>Auto Canvas Rubric</h1>
+      <div id="steps-scrollthrough-container" class="overflow-fade-wrapper">
+        <ol type="1" class="landing-steps">
+          <li>
+            <h2>Back gradebook up</h2>
+            <input class="form-check-input" type="checkbox" id="backup-promise">
+            <label class="form-check-label" for="backup-promise">I have backed up the gradebook for this class</label>
+          </li>
+          <li>
+            <h2>Open a Canvas assignment <i class="material-icons" data-bs-toggle="popover" data-bs-trigger="focus" tabindex="0" data-bs-html=true data-bs-content="Open the SpeedGrader page for an assignment which has a <b>non-Enhanced Rubric</b>.">help</i></h2>
+          </li>
+          <li>
+            <h2>Upload file <i class="material-icons" data-bs-toggle="popover" data-bs-trigger="focus" tabindex="0" data-bs-title="Popover title" data-bs-content="Content">help</i></h2>
+            <input class="form-control" type="file">
+          </li>
+          <li>
+            <h2>Check student names</h2>
+            <p>The following <b>imported</b> student names were not found in Canvas. Click the names below or leave them ignored.</p>
+            <div class="row">
+              <div class="col">
+                <p>Ignored <b>imported</b> student names:</p>
+                <ul class="list-ignored-student-matcher overflow-auto">
+                  <li>
+                    Billy Joe
+                  </li>
+                  <li>
+                    Sally
+                  </li>
+                </ul>
+              </div>
+              <div class="col">
+                <p>Ignored <b>Canvas</b> student names:</p>
+                <ul class="list-ignored-student-matcher overflow-auto">
+                  <li>
+                    Billy Joe
+                  </li>
+                  <li>
+                    Sally
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </li>
+          <li>
+            <h2>Match file to rubric</h2>
+            <button class="btn btn-primary" disabled>Open rubric</button>
+          </li>
+          <li>
+            <h2>Autofill grades</h2>
+            <p class="text-warning">Do not switch tabs during execution.</p>
+            <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Import file has no test student.">
+              <button class="btn btn-primary" disabled>
+                Test Student only
+              </button>
+            </span>
+            <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Switch to a student listed in the import file.">
+              <button class="btn btn-primary" disabled>
+                This student only
+              </button>
+            </span>
+            <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-html="true" data-bs-title="No test option has been used.<br>Are you sure?">
+              <button class="btn btn-outline-warning" disabled>
+                All students
+              </button>
+            </span>
+          </li>
+          <li><h1>hi<br>hi<br>hi<br>hi</h1></li>
+        </ol>
+      </div>
+    </div>
+  </body>
+
+</html>

@@ -1,0 +1,127 @@
+body {
+    --background-color: white;
+    background-color: var(--background-color);
+    
+    min-width: 20rem;
+    min-height: 10rem;
+    /* Upon load, popup.js will shrink to match viewport */
+    width: 800px;
+    height: 600px;
+
+    padding: 1.25em 1.5em .75em 1.5em;
+}
+
+#vertical-page-flex {
+    height: 100%;
+
+    display: flex;
+    flex-basis: auto;
+    flex-wrap: nowrap;
+    flex-direction: column;
+}
+
+#vertical-page-flex > h1 {
+    font-size: x-large;
+
+    flex-shrink: 0;
+}
+
+#vertical-page-flex > #steps-scrollthrough-container {
+    flex-shrink: 1;
+}
+
+ol.landing-steps{
+    max-height: 100%;
+    padding-left: 2rem;
+    padding-right: 1rem;
+}
+
+/* Header line (in popup's main list of steps) */
+ol.landing-steps li::marker, ol.landing-steps h2 {
+    font-size: larger;
+    font-weight: 600;
+}
+
+/* Show text icons inline */
+ol.landing-steps li i {
+    vertical-align: sub;
+}
+
+.list-ignored-student-matcher li {
+    font-size: small;
+    opacity: .6;
+}
+.list-ignored-student-matcher li:hover {
+    font-size: small;
+    opacity: 1;
+}
+
+.overflow-fade-wrapper {
+    position: relative;
+
+    overflow-y: hidden;
+}
+
+.overflow-fade-wrapper > * {
+    overflow-y: scroll;
+}
+
+.overflow-fade-wrapper > :first-child::before, :last-child::after {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2rem;
+
+    --fade-color: var(--background-color);
+    --fade-midpoint: 75%;
+    --fade-to: rgba(0,0,0,0);
+
+    animation-name: fadeInAnimation;
+    animation-duration: 1ms;
+
+    content: "";
+}
+
+.overflow-fade-wrapper > :first-child::before {
+    top: 0;
+    
+    background-image: linear-gradient(to bottom, var(--fade-color), var(--fade-midpoint), var(--fade-to));
+    animation-direction: alternate;
+}
+
+.overflow-fade-wrapper > :last-child::after {
+    bottom: 0;
+    
+    background-image: linear-gradient(to top, var(--fade-color), var(--fade-midpoint), var(--fade-to));
+    animation-direction: alternate-reverse;
+}
+
+@keyframes fadeInAnimation {
+    0% {
+        opacity: 0;
+    }
+    20% {
+        opacity: 1;
+    }
+}
+
+.overflow-fade-wrapper > *::-webkit-scrollbar {
+    width: 0.5rem;
+}
+
+.overflow-fade-wrapper > *::-webkit-scrollbar-thumb {
+    background-color: darkgrey;
+    border-radius: 0.7rem;
+}
+
+.overflow-fade-wrapper > *::-webkit-scrollbar-thumb:hover {
+    background-color: grey;
+}
+
+.overflow-fade-wrapper > :first-child::before, :last-child::after {
+    animation-timeline: --overflowTimeline;
+}
+
+.overflow-fade-wrapper > * {
+    scroll-timeline: --overflowTimeline block;
+}
