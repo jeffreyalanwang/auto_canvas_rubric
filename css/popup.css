@@ -118,10 +118,10 @@ ol.landing-steps li i {
     background-color: grey;
 }
 
-.overflow-fade-wrapper > :first-child::before, :last-child::after {
+#steps-scrollthrough-container.overflow-fade-wrapper > :first-child::before, :last-child::after {
     animation-timeline: --overflowTimeline;
 }
 
-.overflow-fade-wrapper > * {
+#steps-scrollthrough-container.overflow-fade-wrapper > * {
     scroll-timeline: --overflowTimeline block;
 }
