@@ -7,6 +7,7 @@ allowTableWhiteList.th = ['scope'];
 allowTableWhiteList.td = ['style'];
 
 $('#file-post-selection-info').hide();
+$('#match-student-names-display').hide();
 
 const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
 const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
@@ -64,6 +65,7 @@ function unlockNextStep(current_step_index) {
 
 // Define the rules for all the steps
 var on_upload_file_done;
+var on_name_matching_OK;
 var on_rubric_matching_done;
 $(function () {
     let bp_step_index = $(allSteps).index($('#backup-promise-step'));
@@ -100,7 +102,6 @@ $(function () {
     let uf_step_index = $(allSteps).index($('#upload-file-step'));
     function next_step_uf() {
         stepComplete($('#upload-file-step').get());
-        console.log('hi');
         unlockNextStep(uf_step_index);
     }
     on_upload_file_done = next_step_uf;
@@ -113,9 +114,7 @@ $(function () {
     $('#skip-match-names').on('click', function () {
         next_step_mn();
     });
-    $('#submit-matchings-button').on('click', function () {
-        next_step_mn();
-    });
+    on_name_matching_OK = next_step_mn; // for no name matching support
 
     let mr_step_index = $(allSteps).index($('#match-rubric-step'));
     function next_step_mr() {
@@ -305,8 +304,84 @@ $('#upload-file-step').find('input[type=file]').on('change',
 );
 
 // #match-names-step
-const speedgraderOpen = () => checkpointTrue($('#open-canvas-step').find('p#checkpoint-isSpeedGrader').get()[0]);
-on_file_name_list_available = () => {};
+on_file_name_list_available = async function () {
+
+    const canvasStudentList = (await chrome.runtime.sendMessage({type: "studentNames"}))
+                                                        .canvas_student_list;
+    
+    // populate info
+    const unmatched_imported_strings = fileStudentList.filter((element) => !canvasStudentList.includes(element));
+    const unmatched_canvas_strings = canvasStudentList.filter((element) => !fileStudentList.includes(element));
+    if (unmatched_imported_strings.length > 0) {
+        $("#unmatched-imported ul").html("");
+        for (student_name of unmatched_imported_strings) {
+            const element = `<li> ${student_name} </li>`;
+            $("#unmatched-imported ul").append(element);
+        }
+    } else {
+        $("#unmatched-imported ul").html("<i>none</i>");
+    }
+    if (unmatched_canvas_strings.length > 0) {
+        $("#unmatched-canvas ul").html("");
+        for (student_name of unmatched_canvas_strings) {
+            const element = `<li> ${student_name} </li>`;
+            $("#unmatched-canvas ul").append(element);
+        }
+    } else {
+        $("#unmatched-canvas ul").html("<i>none</i>");
+    }
+    // hide Waiting for CSV...
+    $("#match-names-step-waiting").hide();
+    // reveal info
+    const infoRevealed = $("#match-student-names-display").slideDown().promise();
+
+    if (unmatched_imported_strings.length === 0) {
+        infoRevealed.then(() => {
+            // when done, send empty matchings to service worker
+            chrome.runtime.sendMessage({
+                type: "studentMappings",
+                student_name_mappings_file_canvas: {} // ignore this feature for now
+            })
+
+            // switch to next step
+            setTimeout(on_name_matching_OK, 1000);
+        });
+    }
+};
 
 // #match-rubric-step
-// .then(on_rubric_matching_done);
+$("#begin-matching-button").on('click', () => {
+    // initiate action
+    chrome.runtime.sendMessage({
+        type: "initiateCanvasRubricMatching"
+    });
+
+    // close popup
+    window.close();
+});
+
+// #execution-step
+function removeFillAllWarning() {
+    let nonwarning_message = $("#execute-fill-all").attr("data-after-title");
+    $("#execute-fill-all").attr("data-bs-title", nonwarning_message);
+}
+$("#execute-fill-testStudent").on('click', () => {
+    removeFillAllWarning();
+    chrome.runtime.sendMessage({
+        type: "executeRubricFill",
+        target: "testStudent"
+    });
+});
+$("#execute-fill-currStudent").on('click', () => {
+    removeFillAllWarning();
+    chrome.runtime.sendMessage({
+        type: "executeRubricFill",
+        target: "curr"
+    });
+});
+$("#execute-fill-all").on('click', () => {
+    chrome.runtime.sendMessage({
+        type: "executeRubricFill",
+        target: "all"
+    });
+});

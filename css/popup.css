@@ -83,10 +83,6 @@ ol.landing-steps li p i {
 
 ul.list-ignored-student-matcher li, ul.list-matched-students li {
     font-size: small;
-    opacity: .6;
-}
-ul.list-ignored-student-matcher li:hover, ul.list-matched-students li:hover {
-    font-size: small;
     opacity: 1;
 }
 ul.list-ignored-student-matcher li, ul.list-matched-students li {

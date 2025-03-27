@@ -33,7 +33,7 @@ let content_script_request_studentNames;
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
     if (messageSenderType(sender) === -1 &&
-        request.type === "studentNames") // TODO implement in popup
+        request.type === "studentNames")
     {
       content_script_request_studentNames(sendResponse);
       return true; // We will call sendResponse after async calls
@@ -44,10 +44,10 @@ chrome.runtime.onMessage.addListener(
 // * get list of students
 let popup_script_return_studentNames;
 content_script_request_studentNames = async function (sendResponse) {
-  content_script_tab_id = await getCurrentTabID();
-  response = await chrome.tabs.sendMessage(content_script_tab_id, {
+  const content_script_tab_id = await getCurrentTabID();
+  const response = await chrome.tabs.sendMessage(content_script_tab_id, {
     type: "studentNames" // TODO implement in content script
-  })
+  });
   // make sure we haven't changed tabs since the request was made
   if (content_script_tab_id !== await getCurrentTabID()) {
     const sending_tab = await chrome.tabs.get(content_script_tab_id);
@@ -248,7 +248,7 @@ let service_worker_store_studentMappings;
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
     if (messageSenderType(sender) === -1 &&
-        request.type === "studentMappings") // TODO implement in popup
+        request.type === "studentMappings")
     {
       service_worker_store_studentMappings(request.student_name_mappings_file_canvas);
       sendResponse({received: true});
@@ -279,7 +279,7 @@ chrome.runtime.onMessage.addListener(
 // * file-to-canvas matching
 let service_worker_save_file_canvas_mapping;
 content_script_request_rubric_matching = function () {
-  content_script_tab_id = getCurrentTab().id;
+  const content_script_tab_id = getCurrentTab().id;
   chrome.tabs.sendMessage(content_script_tab_id, {
     type: "initiateCanvasRubricMatching", // TODO implement in content script
     file_criteria_strings: rubricGradebooks['content_script_tab_id'].criteria
@@ -300,15 +300,13 @@ let content_script_execute_rubric_fill_batch;
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
     if (messageSenderType(sender) === -1 &&
-        request.type === "executeRubricFill") { // TODO implement in popup
-                                                // TODO have popup close when this is called
-                                                // TODO allow popup to reopen in proper state, then
+        request.type === "executeRubricFill") {
       const curr_tab_id = getCurrentTab().id;
       let student_selection = null;
       switch (request.target) {
         case "testStudent":
           student_selection = "Test Student";
-        case "single":
+        case "curr":
           content_script_execute_rubric_fill_single(student_selection, curr_tab_id);
           break;
         case "batch":

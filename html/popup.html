@@ -99,58 +99,48 @@
         </li>
         <li id="match-names-step">
           <h2>Check student names</h2>
-          <p style="margin-bottom:.25rem">The following student names do not match. Click them or <a id="skip-match-names" href="#" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Click to skip">leave them ignored</a>.</p>
-          <div class="row" style="margin-bottom:1rem">
-            <div class="col">
-              <p style="font-style:italic; margin-bottom:0">Ignored <b>imported</b> student names:</p>
-              <ul class="list-ignored-student-matcher overflow-fade-scroll">
-                <li>
-                  Student Name
-                </li>
-              </ul>
-            </div>
-            <div class="col">
-              <p style="font-style:italic; margin-bottom:0">Ignored <b>Canvas</b> student names:</p>
-              <ul class="list-ignored-student-matcher overflow-fade-scroll">
-                <li>
-                  Student Name
-                </li>
-              </ul>
-            </div>
-          </div>
-          <p style="margin-bottom:0">Manual matches:</p>
-          <div class="row">
-            <div class="col" style="flex: 1 0">
-              <ul class="list-matched-students overflow-fade-scroll">
-                <li>
-                  Student Name
-                </li>
-              </ul>
-            </div>
-            <div class="col" style="flex: 0 1 25%">
-              <button id="submit-matchings-button" class="btn btn-primary" disabled>Done</button>
+          <p id="match-names-step-waiting"><i>Waiting for CSV...</i></p>
+          <div id="match-student-names-display">
+            <p style="margin-bottom:.25rem">The student names do not match a student in Canvas.<br>Fix them in the CSV file first, or <a id="skip-match-names" href="#" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Click to skip">leave them ignored</a>.</p>
+            <div class="row">
+              <div id="unmatched-imported" class="col">
+                <p style="font-style:italic; margin-bottom:0">Unmatched <b>imported</b> student names:</p>
+                <ul class="list-ignored-student-matcher overflow-fade-scroll">
+                  <li>
+                    <i>none</i>
+                  </li>
+                </ul>
+              </div>
+              <div id="unmatched-canvas" class="col">
+                <p style="font-style:italic; margin-bottom:0">Unmatched <b>Canvas</b> student names:</p>
+                <ul class="list-ignored-student-matcher overflow-fade-scroll">
+                  <li>
+                    <i>none</i>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </li>
         <li id="match-rubric-step">
           <h2>Match file to rubric</h2>
-          <button class="btn btn-primary" style="background-color: darkgreen; border-color: darkgreen;" disabled>Open rubric</button>
+          <button id="begin-matching-button" class="btn btn-primary" style="background-color: darkgreen; border-color: darkgreen;" disabled>Open rubric</button>
         </li>
         <li id="execution-step">
           <h2>Autofill grades</h2>
           <p class="text-warning">Do not switch tabs during execution.</p>
           <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Import file has no test student.">
-            <button class="btn btn-primary" disabled>
+            <button id="execute-fill-testStudent" class="btn btn-primary" disabled>
               Test Student only
             </button>
           </span>
-          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Switch to a student listed in the import file.">
-            <button class="btn btn-primary" disabled>
+          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Fill the rubric grades from the file for just the current student.">
+            <button id="execute-fill-currStudent" class="btn btn-primary" disabled>
               This student only
             </button>
           </span>
-          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-html="true" data-bs-title="No test option has been used.<br>Are you sure?">
-            <button class="btn btn-outline-warning" disabled>
+          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-html="true" data-bs-title="No test option has been used.<br>Are you sure?" data-after-title="Fill all info listed in the imported CSV file.">
+            <button id="execute-fill-all" class="btn btn-outline-warning" disabled>
               All students
             </button>
           </span>
