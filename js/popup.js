@@ -60,6 +60,9 @@ function unlockNextStep(current_step_index) {
     nextStep = allSteps[current_step_index + 1];
     $(nextStep).removeClass(class_name_locked);
     $(nextStep).find(':disabled').not('.disabled-at-step-unlock').prop('disabled', false);
+    if ($(nextStep).hasClass(class_name_completed)) {
+        $(nextStep).removeClass(class_name_completed);
+    }
     onStepBegin[current_step_index + 1]();
 }
 
@@ -114,7 +117,9 @@ $(function () {
     $('#skip-match-names').on('click', function () {
         next_step_mn();
     });
-    on_name_matching_OK = next_step_mn; // for no name matching support
+    on_name_matching_OK = function () { // for no name matching support
+        next_step_mn();
+    };
 
     let mr_step_index = $(allSteps).index($('#match-rubric-step'));
     function next_step_mr() {
@@ -334,7 +339,16 @@ on_file_name_list_available = async function () {
     $("#match-names-step-waiting").hide();
     // reveal info
     const infoRevealed = $("#match-student-names-display").slideDown().promise();
+    if (unmatched_imported_strings.length === 0) {
+        $("#match-student-names-complaint").hide();
 
+        // we have now set mappings which apply only to this file, so this tab should no longer change the file used
+        $('#upload-file-step input[type=file]').prop('disabled', true);
+    } else {
+        $("#match-student-names-complaint").show();
+
+        $('#upload-file-step').removeClass(class_name_completed);
+    }
     if (unmatched_imported_strings.length === 0) {
         infoRevealed.then(() => {
             // when done, send empty matchings to service worker
