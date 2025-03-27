@@ -4,14 +4,23 @@
   "description": "File import for a Canvas assignment by auto-clicking through the SpeedGrader rubric.",
   "version": "0.1.0",
   "icons": {
-    "16": "images/icon-16.png",
-    "32": "images/icon-32.png",
-    "48": "images/icon-48.png",
-    "128": "images/icon-128.png"
+    "16": "/images/icon-16.png",
+    "32": "/images/icon-32.png",
+    "48": "/images/icon-48.png",
+    "128": "/images/icon-128.png"
   },
   "background": {
-    "service_worker": "/js/background.js"
+    "service_worker": "/js/background.js",
+    "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["*://*.instructure.com/*", "*://*/*"],
+      "include-globs": ["*://*/courses/*/gradebook/speed_grader*"],
+      "all_frames": false,
+      "js": ["/js/node/jquery.min.js", "/js/speedgrader-content-script.js"]
+    }
+  ],
   "action": {
     "default_popup": "/html/popup.html",
     "default_icon": {

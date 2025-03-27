@@ -1,6 +1,10 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
   <head>
+    <title>Auto Canvas Rubric</title>
+    <meta name="viewport" content="width=device-width">
+
     <!-- imports -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
 
@@ -17,74 +21,141 @@
   <body>
     <div id="vertical-page-flex">
       <h1>Auto Canvas Rubric</h1>
-      <div id="steps-scrollthrough-container" class="overflow-fade-wrapper">
-        <ol type="1" class="landing-steps">
-          <li>
-            <h2>Back gradebook up</h2>
-            <input class="form-check-input" type="checkbox" id="backup-promise">
-            <label class="form-check-label" for="backup-promise">I have backed up the gradebook for this class</label>
-          </li>
-          <li>
-            <h2>Open a Canvas assignment <i class="material-icons" data-bs-toggle="popover" data-bs-trigger="focus" tabindex="0" data-bs-html=true data-bs-content="Open the SpeedGrader page for an assignment which has a <b>non-Enhanced Rubric</b>.">help</i></h2>
-          </li>
-          <li>
-            <h2>Upload file <i class="material-icons" data-bs-toggle="popover" data-bs-trigger="focus" tabindex="0" data-bs-title="Popover title" data-bs-content="Content">help</i></h2>
-            <input class="form-control" type="file">
-          </li>
-          <li>
-            <h2>Check student names</h2>
-            <p>The following <b>imported</b> student names were not found in Canvas. Click the names below or leave them ignored.</p>
-            <div class="row">
-              <div class="col">
-                <p>Ignored <b>imported</b> student names:</p>
-                <ul class="list-ignored-student-matcher overflow-auto">
-                  <li>
-                    Billy Joe
-                  </li>
-                  <li>
-                    Sally
-                  </li>
-                </ul>
-              </div>
-              <div class="col">
-                <p>Ignored <b>Canvas</b> student names:</p>
-                <ul class="list-ignored-student-matcher overflow-auto">
-                  <li>
-                    Billy Joe
-                  </li>
-                  <li>
-                    Sally
-                  </li>
-                </ul>
-              </div>
+      <ol type="1" class="landing-steps overflow-fade-scroll">
+        <li id="backup-promise-step">
+          <h2>Back gradebook up</h2>
+          <input class="form-check-input" type="checkbox" id="backup-promise">
+          <label class="form-check-label" for="backup-promise">I have backed up the gradebook for this class</label>
+        </li>
+        <li id="open-canvas-step">
+          <h2>Open a Canvas assignment <i class="material-icons" data-bs-toggle="popover" data-bs-trigger="focus" tabindex="0" data-bs-html=true data-bs-content="Open the SpeedGrader page for an assignment which has a <b>non-Enhanced Rubric</b>.">help</i></h2>
+          <div class="row">
+            <p class="col">Current tab:</p>
+            <p class="col" id="checkpoint-isCanvas" style="color: var(--bs-danger);"><i class="material-icons">close</i>is Canvas</p>
+            <p class="col" id="checkpoint-isCanvasAssignment" style="color: var(--bs-danger);"><i class="material-icons">close</i>is assignment</p>
+            <p class="col" id="checkpoint-isSpeedGrader" style="color: var(--bs-danger);"><i class="material-icons">close</i>is SpeedGrader view</p>
+          </div>
+        </li>
+        <li id="upload-file-step">
+          <h2>Upload file <i class="material-icons" data-bs-toggle="popover" data-bs-trigger="focus" tabindex="0" data-bs-title="CSV file format" data-bs-html=true \
+                              data-bs-content='<p class="table-caption">Score values may be any positive or negative decimal number. ("-.5")</p>
+                                               <p class="table-caption">Set to two hyphens ("--") to unset (gives student non-explicit 0 points).</p>
+                                               <p class="table-caption">Set to empty string ("") to leave unchanged.</p>
+                                               <table class="table popover-table">
+                                                 <thead>
+                                                  <tr>
+                                                    <th scope="col">"criteria"</th>
+                                                    <th scope="col">A Student&apos;s Name</th>
+                                                    <th scope="col">Exactly as in Canvas</th> 
+                                                    <th scope="col">[subset of all students]</th>
+                                                  </tr>
+                                                 </thead>
+                                                 <tbody>
+                                                  <tr>
+                                                    <th scope="row">Criterion nickname (can be any string)</th>
+                                                    <td>0</td>
+                                                    <td>10</td>
+                                                    <td class="table-ellipsis">...</td>
+                                                  </tr>
+                                                  <tr>
+                                                    <th scope="row">Criterion #2</th>
+                                                    <td>--</td>
+                                                    <td>""</td>
+                                                    <td class="table-ellipsis">...</td>
+                                                  </tr>
+                                                  <tr>
+                                                    <th scope="row">Criterion for another rubric row</th>
+                                                    <td>0.033</td>
+                                                    <td>-5</td>
+                                                    <td class="table-ellipsis">...</td>
+                                                  </tr>
+                                                  <tr>
+                                                    <th scope="row">[subset of rubric rows]</th>
+                                                    <td class="table-ellipsis">...</td>
+                                                    <td class="table-ellipsis">...</td>
+                                                    <td class="table-ellipsis">...</td>
+                                                  </tr>
+                                                 </tbody>
+                                               </table>'
+                              >help</i>
+                          </h2>
+          <input title="Upload CSV file" class="form-control" type="file" accept=".csv" disabled>
+          <div id="file-post-selection-info">
+            <div id="file-process-spinner" class="loader"></div>
+            <div id="file-process-error-message">
+              <span id="fperr-message-from-processing" style="color: darkorange">
+                <i class="material-icons d-inline-block">warning</i>
+                <p id="fp-text" class="d-inline-block"></p>
+              </span>
+              <span id="fperr-unexpected-err" style="color: darkred">
+                <i class="material-icons d-inline-block">error</i>
+                <p id="fp-text" class="d-inline-block"></p>
+              </span>
             </div>
-          </li>
-          <li>
-            <h2>Match file to rubric</h2>
-            <button class="btn btn-primary" disabled>Open rubric</button>
-          </li>
-          <li>
-            <h2>Autofill grades</h2>
-            <p class="text-warning">Do not switch tabs during execution.</p>
-            <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Import file has no test student.">
-              <button class="btn btn-primary" disabled>
-                Test Student only
-              </button>
-            </span>
-            <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Switch to a student listed in the import file.">
-              <button class="btn btn-primary" disabled>
-                This student only
-              </button>
-            </span>
-            <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-html="true" data-bs-title="No test option has been used.<br>Are you sure?">
-              <button class="btn btn-outline-warning" disabled>
-                All students
-              </button>
-            </span>
-          </li>
-          <li><h1>hi<br>hi<br>hi<br>hi</h1></li>
-        </ol>
-      </div>
+            <div id="file-process-success">
+              <p id="fp-text" class="d-inline-block"></p>
+            </div>
+          </div>
+        </li>
+        <li id="match-names-step">
+          <h2>Check student names</h2>
+          <p style="margin-bottom:.25rem">The following student names do not match. Click them or <a id="skip-match-names" href="#" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Click to skip">leave them ignored</a>.</p>
+          <div class="row" style="margin-bottom:1rem">
+            <div class="col">
+              <p style="font-style:italic; margin-bottom:0">Ignored <b>imported</b> student names:</p>
+              <ul class="list-ignored-student-matcher overflow-fade-scroll">
+                <li>
+                  Student Name
+                </li>
+              </ul>
+            </div>
+            <div class="col">
+              <p style="font-style:italic; margin-bottom:0">Ignored <b>Canvas</b> student names:</p>
+              <ul class="list-ignored-student-matcher overflow-fade-scroll">
+                <li>
+                  Student Name
+                </li>
+              </ul>
+            </div>
+          </div>
+          <p style="margin-bottom:0">Manual matches:</p>
+          <div class="row">
+            <div class="col" style="flex: 1 0">
+              <ul class="list-matched-students overflow-fade-scroll">
+                <li>
+                  Student Name
+                </li>
+              </ul>
+            </div>
+            <div class="col" style="flex: 0 1 25%">
+              <button id="submit-matchings-button" class="btn btn-primary" disabled>Done</button>
+            </div>
+          </div>
+        </li>
+        <li id="match-rubric-step">
+          <h2>Match file to rubric</h2>
+          <button class="btn btn-primary" style="background-color: darkgreen; border-color: darkgreen;" disabled>Open rubric</button>
+        </li>
+        <li id="execution-step">
+          <h2>Autofill grades</h2>
+          <p class="text-warning">Do not switch tabs during execution.</p>
+          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Import file has no test student.">
+            <button class="btn btn-primary" disabled>
+              Test Student only
+            </button>
+          </span>
+          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Switch to a student listed in the import file.">
+            <button class="btn btn-primary" disabled>
+              This student only
+            </button>
+          </span>
+          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-html="true" data-bs-title="No test option has been used.<br>Are you sure?">
+            <button class="btn btn-outline-warning" disabled>
+              All students
+            </button>
+          </span>
+        </li>
+      </ol>
     </div>
   </body>
 

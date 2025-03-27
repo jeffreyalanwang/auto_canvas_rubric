@@ -1,8 +1,9 @@
 {
   "scripts": {
     "update": "npm install && npm run copy_files",
-    "copy_files": "npm run copy_files_jquery && npm run copy_files_bootstrap_popper",
+    "copy_files": "npm run copy_files_jquery && npm run copy_files_csv && npm run copy_files_bootstrap_popper",
     "copy_files_jquery": "cp node_modules/jquery/dist/jquery.min.js js/node/",
+    "copy_files_csv": "cp node_modules/@vanillaes/csv/index.min.js js/node/csv.min.js",
     "copy_files_bootstrap_popper": "cp node_modules/bootstrap/dist/js/bootstrap.bundle.min.js js/node/ && cp node_modules/bootstrap/dist/css/bootstrap.min.css css/node/"
   },
   "//scripts (imported) (no idea what these do)": {
@@ -14,8 +15,8 @@
     "test": "npm-run-all css-lint css"
   },
   "devDependencies": {
-    "chrome-types": "^0.1.345",
     "autoprefixer": "^10.4.20",
+    "chrome-types": "^0.1.345",
     "npm-run-all": "^4.1.5",
     "postcss": "^8.4.47",
     "postcss-cli": "^11.0.0",
@@ -24,6 +25,7 @@
     "stylelint-config-twbs-bootstrap": "^15.0.0"
   },
   "dependencies": {
+    "@vanillaes/csv": "^3.0.4",
     "bootstrap": "^5.3.3",
     "jquery": "^3.7.1",
     "popper.js": "^1.16.1"
