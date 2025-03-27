@@ -202,7 +202,7 @@ service_worker_process_file = async function (file_text, sendResponse) {
   };
   rubricGradebooks[forTabID] = rubricGradebook;
 
-  popup_script_return_file_metadata({studentList: rubricScores.keys(), criteriaCount: criteria.length}, sendResponse)
+  popup_script_return_file_metadata({studentList: Array.from(rubricScores.keys()), criteriaCount: criteria.length}, sendResponse)
 }
 // Return file metadata to popup
 // * student list

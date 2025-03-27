@@ -200,6 +200,14 @@ td.table-ellipsis {
     margin-top: .125rem;
     margin-bottom: 0;
 }
+#upload-file-step #file-post-selection-info #file-process-success,
+#upload-file-step #file-post-selection-info #file-process-success #fp-text {
+    width: 100%;
+}
+#upload-file-step #file-post-selection-info #file-process-success #fp-text .row {
+    margin-left: 0;
+    margin-right: 0;
+}
 
 .loader {
     height: 4px;

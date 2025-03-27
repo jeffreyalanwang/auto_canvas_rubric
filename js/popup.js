@@ -100,6 +100,7 @@ $(function () {
     let uf_step_index = $(allSteps).index($('#upload-file-step'));
     function next_step_uf() {
         stepComplete($('#upload-file-step').get());
+        console.log('hi');
         unlockNextStep(uf_step_index);
     }
     on_upload_file_done = next_step_uf;
@@ -253,8 +254,8 @@ $('#upload-file-step').find('input[type=file]').on('change',
         message_promise.then(
             (response) => {
                 if (!response.errorMsg) {
-                    fileStudentList = file_student_list;
-                    fileCriteriaCount = criteria_count;
+                    fileStudentList = response.file_student_list;
+                    fileCriteriaCount = response.criteria_count;
                     on_file_name_list_available(); // notify #match-names-step they can load a working name list now
                 } else {
                     error.wasFound = true;
@@ -290,11 +291,13 @@ $('#upload-file-step').find('input[type=file]').on('change',
                     $('#file-process-success').show();
                     $('#file-process-success').children('#fp-text')
                         .html(
-                            `Number of students: ${fileStudentList.length}<br>` +
-                            `Number of rubric criteria: ${fileCriteriaCount}`
+                            `<div class='row'>` +
+                                `<div class='col'> Number of students: ${fileStudentList.length} </div>` +
+                                `<div class='col'> Number of rubric criteria: ${fileCriteriaCount} </div>` +
+                            `</div>`
                         );
                     // When step is completely done, switch to the next step
-                    on_upload_file_done()
+                    on_upload_file_done();
                 }
             }
         );
