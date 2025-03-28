@@ -2,16 +2,17 @@ import { parse as csvToRowList } from "./node/csv.min.js";
 
 // Store stateful info in service worker
 const studentLists = {}; // TODO convert all these to map
-const studentMappings = {};
 const rubricGradebooks = {};
+const studentMappings = {};
+const popupStates = {};
 
 async function getCurrentTab() {
   const out = await chrome.tabs.query({currentWindow: true, active: true});
-  console.assert(out.length === 1, `Got multiple active tabs: ${out}`);
+  console.assert(out.length === 1, `Got ${out.length} active tabs: ${out}`);
   return out[0];
 }
 async function getCurrentTabID() {
-  await getCurrentTab.id;
+  return await getCurrentTab.id;
 }
 
 // -2: content script
@@ -27,57 +28,98 @@ function messageSenderType(sender) {
   }
 }
 
+// POPUP STATE
+// Upon message from popup, save provided info
+chrome.runtime.onMessage.addListener(
+  function(request, sender, sendResponse) {
+    if (messageSenderType(sender) === -1 &&
+        request.type === "state" &&
+        request.action === "save")
+    {
+      console.assert(!request.state.new, "Possible mistake identified");
+      getCurrentTabID().then(
+        (tabID) =>
+          popupStates[tabID] = request.state
+      );
+      return false; // We will not call sendResponse
+    }
+  }
+);
+// Upon message from popup, clear provided info and internal state for current tab
+chrome.runtime.onMessage.addListener(
+  function(request, sender, sendResponse) {
+    if (messageSenderType(sender) === -1 &&
+        request.type === "state" &&
+        request.action === "clear")
+    {
+      getCurrentTabID().then(
+        (tabID) => {
+          popupStates[tabID] = rubricGradebooks[tabID] = studentMappings[tabID]
+            = undefined;
+          sendResponse();
+        }
+      );
+      return true;
+    }
+  }
+);
+// Upon request from popup, return state from last popup open
+chrome.runtime.onMessage.addListener(
+  function(request, sender, sendResponse) {
+    if (messageSenderType(sender) === -1 &&
+        request.type === "state" &&
+        request.action === "load")
+    {
+      getCurrentTabID().then(
+        (tabID) => sendResponse({
+          state: popupStates[tabID] ?? {new: true}
+        })
+      );
+      return true;
+    }
+  }
+);
+
+
 // POPUP NEEDS LIST OF STUDENTS
-// Upon request from popup,
+// Upon request from popup, send cached student_list
 let content_script_request_studentNames;
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
     if (messageSenderType(sender) === -1 &&
         request.type === "studentNames")
     {
-      content_script_request_studentNames(sendResponse);
-      return true; // We will call sendResponse after async calls
+      getCurrentTabID().then(
+        (tab_id) => {
+          if (!studentLists[tab_id]) {
+            console.warn("studentList was not found");
+            console.warn(studentLists);
+          }
+          if (studentLists[tab_id] && studentLists[tab_id].length === 0) {
+            console.warn("studentList was found to be stored, but was length 0");
+            console.warn(studentLists);
+          }
+          sendResponse({
+            canvas_student_list: studentLists[tab_id]
+          });
+        }
+      );
+      return true;
     }
   }
 );
-// Request content script:
-// * get list of students
-let popup_script_return_studentNames;
-content_script_request_studentNames = async function (sendResponse) {
-  const content_script_tab_id = await getCurrentTabID();
-  const response = await chrome.tabs.sendMessage(content_script_tab_id, {
-    type: "studentNames" // TODO implement in content script
-  });
-  // make sure we haven't changed tabs since the request was made
-  if (content_script_tab_id !== await getCurrentTabID()) {
-    const sending_tab = await chrome.tabs.get(content_script_tab_id);
-    console.log(`Received studentNames but the sending tab is not the active tab. Sending tab info: ${sending_tab}`);
-  } else {
-    const studentNames = response.student_list;
-    popup_script_return_studentNames(studentNames, sendResponse);
-  }
-};
-// Return list to popup
-popup_script_return_studentNames = function (studentNames, sendResponse) {
-  studentNames = message.student_list;
-  sendResponse({
-    'canvas_student_list': studentNames
-  });
-};
 
-// Cache student_list
-// TODO reconsider the necessity of this; is it used at all?
-// TODO * maybe you need to keep a full state for tabs/popup instances
+// Upon content script providing it: cache student_list
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
-    if (messageSenderType(sender) >= 0) {
+    if (messageSenderType(sender) >= 0 &&
+        request.studentList) {
+      console.log(`Got studentList message ${request}`);
       studentLists[sender.tab.id] = request.student_list;
       return false; // Let Chrome know we don't need sendResponse in this listener
-                    // Another listener whose job is to actively handle this message may use sendResponse
     }
   }
 );
-
 
 // PROCESS FILE & RETURN METADATA
 // Upon message from popup,
@@ -209,13 +251,13 @@ service_worker_process_file = async function (file_text, sendResponse) {
 // * criteria count
 // * any errors
 popup_script_return_file_metadata = function ({studentList, criteriaCount, errorMsg}, sendResponse) {
-  if (errorMsg) { // TODO implement in popup: loading symbol until sendResponse is called
-    sendResponse({'errorMsg': errorMsg}); // TODO implement in popup
+  if (errorMsg) {
+    sendResponse({'errorMsg': errorMsg});
   }
   else {
     sendResponse({
       'file_student_list': studentList,
-      'criteria_count': criteriaCount // TODO implement in popup
+      'criteria_count': criteriaCount
     });
   }
 }
@@ -266,9 +308,7 @@ let content_script_request_rubric_matching;
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
     if (messageSenderType(sender) === -1 &&
-        request.type === "initiateCanvasRubricMatching") // TODO implement in popup
-                                                  // TODO have popup close when this is called
-                                                  // TODO allow popup to reopen in proper state, then
+        request.type === "initiateCanvasRubricMatching")
     {
       content_script_request_rubric_matching();
       return false; // We will not call sendResponse
@@ -280,17 +320,23 @@ chrome.runtime.onMessage.addListener(
 let service_worker_save_file_canvas_mapping;
 content_script_request_rubric_matching = function () {
   const content_script_tab_id = getCurrentTab().id;
-  chrome.tabs.sendMessage(content_script_tab_id, {
-    type: "initiateCanvasRubricMatching", // TODO implement in content script
+  chrome.tabs.sendMessage(content_script_tab_id, { // TODO implement request origin checks in content script and popup
+    type: "initiateCanvasRubricMatching",
     file_criteria_strings: rubricGradebooks['content_script_tab_id'].criteria
   }).then(function (message) {
     const canvas_rubric_indices = message.criteria_canvas_rubric_row_indices;
-    popup_script_return_studentNames(canvas_rubric_indices, content_script_tab_id);
+    service_worker_save_file_canvas_mapping(canvas_rubric_indices, content_script_tab_id);
   });
 };
 // Store matches of file criteria strings to rubric criteria indices
+let popup_open_at_rubric_match_finished;
 service_worker_save_file_canvas_mapping = function (canvas_rubric_indices, tab_id) {
-  rubricGradebooks(tab_id)['canvas_rubric_indices'] = canvas_rubric_indices;
+  rubricGradebooks[tab_id]['canvas_rubric_indices'] = canvas_rubric_indices;
+  popup_open_at_rubric_match_finished(tab_id);
+}
+popup_open_at_rubric_match_finished = function (tab_id) {
+  popupStates[tab_id].rubricMatchCompleted = true;
+  chrome.action.openPopup();
 }
 
 // EXECUTE RUBRIC FILL

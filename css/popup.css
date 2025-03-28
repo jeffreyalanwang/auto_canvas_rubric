@@ -24,6 +24,10 @@ body {
     padding: 1.25em calc(1.5em - 5px) .75em 1.5em;
 }
 
+#tab-reset-button {
+    margin-right: calc(.5em - .25rem) !important;
+}
+
 #vertical-page-flex {
     height: 100%;
 
@@ -197,10 +201,10 @@ td.table-ellipsis {
     margin-bottom: 0;
 }
 #upload-file-step #file-post-selection-info #file-process-success,
-#upload-file-step #file-post-selection-info #file-process-success #fp-text {
+#upload-file-step #file-post-selection-info #file-process-success .fp-text {
     width: 100%;
 }
-#upload-file-step #file-post-selection-info #file-process-success #fp-text .row {
+#upload-file-step #file-post-selection-info #file-process-success .fp-text .row {
     margin-left: 0;
     margin-right: 0;
 }

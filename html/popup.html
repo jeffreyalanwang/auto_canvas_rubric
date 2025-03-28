@@ -20,7 +20,12 @@
 
   <body>
     <div id="vertical-page-flex">
-      <h1>Auto Canvas Rubric</h1>
+      <div class="d-flex flex-row">
+        <h1 class="flex-grow-1">Auto Canvas Rubric</h1>
+        <button id="tab-reset-button" class="btn btn-secondary m-auto" href="#" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Clear form for the current tab.">
+          Reset
+        </button>
+      </div>
       <ol type="1" class="landing-steps overflow-fade-scroll">
         <li id="backup-promise-step">
           <h2>Back gradebook up</h2>
@@ -79,44 +84,40 @@
                                                </table>'
                               >help</i>
                           </h2>
-          <input title="Upload CSV file" class="form-control" type="file" accept=".csv" disabled>
+          <input id="csv-file-input" title="Upload CSV file" class="form-control" type="file" accept=".csv" disabled>
           <div id="file-post-selection-info">
             <div id="file-process-spinner" class="loader"></div>
             <div id="file-process-error-message">
               <span id="fperr-message-from-processing" style="color: darkorange">
                 <i class="material-icons d-inline-block">warning</i>
-                <p id="fp-text" class="d-inline-block"></p>
+                <p class="fp-text d-inline-block"></p>
               </span>
               <span id="fperr-unexpected-err" style="color: darkred">
                 <i class="material-icons d-inline-block">error</i>
-                <p id="fp-text" class="d-inline-block"></p>
+                <p class="fp-text d-inline-block"></p>
               </span>
             </div>
             <div id="file-process-success">
-              <p id="fp-text" class="d-inline-block"></p>
+              <p class="fp-text d-inline-block"></p>
             </div>
           </div>
         </li>
         <li id="match-names-step">
           <h2>Check student names</h2>
-          <p id="match-names-step-waiting"><i>Waiting for CSV...</i></p>
+          <p id="match-names-step-waiting"><i>Waiting for file...</i></p>
           <div id="match-student-names-display">
             <p id="match-student-names-complaint" style="margin-bottom:.25rem">Some student names do not match a student in Canvas.<br>Fix them in the CSV file first, or <a id="skip-match-names" href="#" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Click to skip">leave them ignored</a>.</p>
             <div class="row">
               <div id="unmatched-imported" class="col">
                 <p style="font-style:italic; margin-bottom:0">Unmatched <b>imported</b> student names:</p>
                 <ul class="list-ignored-student-matcher overflow-fade-scroll">
-                  <li>
-                    <i>none</i>
-                  </li>
+                  <i>Could not load from service worker</i>
                 </ul>
               </div>
               <div id="unmatched-canvas" class="col">
                 <p style="font-style:italic; margin-bottom:0">Unmatched <b>Canvas</b> student names:</p>
                 <ul class="list-ignored-student-matcher overflow-fade-scroll">
-                  <li>
-                    <i>none</i>
-                  </li>
+                  <i>Could not load from service worker</i>
                 </ul>
               </div>
             </div>
@@ -129,12 +130,12 @@
         <li id="execution-step">
           <h2>Autofill grades</h2>
           <p class="text-warning">Do not switch tabs during execution.</p>
-          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Import file has no test student.">
+          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Fill the rubric grades from the file for 'Test Student'.">
             <button id="execute-fill-testStudent" class="btn btn-primary" disabled>
               Test Student only
             </button>
           </span>
-          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Fill the rubric grades from the file for just the current student.">
+          <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-title="Fill the rubric grades from the file for just the current student open in SpeedGrader.">
             <button id="execute-fill-currStudent" class="btn btn-primary" disabled>
               This student only
             </button>

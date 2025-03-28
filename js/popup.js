@@ -1,3 +1,4 @@
+// #region Bootstrap inits
 const allowTableWhiteList = $.fn.tooltip.Constructor.Default.allowList;
 allowTableWhiteList.table = [];
 allowTableWhiteList.thead = [];
@@ -5,9 +6,6 @@ allowTableWhiteList.tbody = [];
 allowTableWhiteList.tr = [];
 allowTableWhiteList.th = ['scope'];
 allowTableWhiteList.td = ['style'];
-
-$('#file-post-selection-info').hide();
-$('#match-student-names-display').hide();
 
 const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
 const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
@@ -17,9 +15,8 @@ const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstra
 
 const class_name_completed = 'user_completed';
 const class_name_locked = 'user_still_locked';
-
-let fileStudentList;
-
+// #endregion Bootstrap inits
+// #region JS visual inits
 // If popup is forced shrunk, change size of elements within
 $(function () {
     // html element is unmodified by CSS files, but should already be grown to its limits by the size of the contained elements
@@ -33,7 +30,18 @@ $(function () {
     const realMaxHeight = $('html').height();
     $('body').css('width', realMaxWidth);
     $('body').css('height', realMaxHeight);
-})
+});
+
+$(function () {
+    $('#file-post-selection-info').hide();
+    $('#match-student-names-display').hide();
+});
+
+// #endregion JS visual inits
+// #region Misc script-level vars
+let fileStudentList;
+// #endregion Misc script-level vars
+// #region Steps Flow Rules - Utilities
 
 // Default behavior: cross everything out but the first option
 let allSteps;
@@ -64,14 +72,17 @@ function unlockNextStep(current_step_index) {
         $(nextStep).removeClass(class_name_completed);
     }
     onStepBegin[current_step_index + 1]();
+    saveTabState();
 }
 
-// Define the rules for all the steps
+// #endregion Steps Flow Rules - Utilities
+// #region Steps Flow Rules - Definitions
 var on_upload_file_done;
 var on_name_matching_OK;
+var begin_match_names_step;
 var on_rubric_matching_done;
 $(function () {
-    let bp_step_index = $(allSteps).index($('#backup-promise-step'));
+    var bp_step_index = $(allSteps).index($('#backup-promise-step'));
     $('#backup-promise-step').children('input[type=checkbox]')
         .on("change", function (e) {
             if ($(this).is(':checked')) {
@@ -81,7 +92,7 @@ $(function () {
         }
     );
 
-    let oc_step_index = $(allSteps).index($('#open-canvas-step'));
+    var oc_step_index = $(allSteps).index($('#open-canvas-step'));
     function check_oc_step() {
         let readyToProceed = true;
         $('#open-canvas-step').find('i').not('h2 *').get()
@@ -100,16 +111,16 @@ $(function () {
             unlockNextStep(oc_step_index);
         }
     }
-    onStepBegin[oc_step_index] = () => setTimeout(check_oc_step, 1000);
+    onStepBegin[oc_step_index] = () => setTimeout(check_oc_step, 700);
 
-    let uf_step_index = $(allSteps).index($('#upload-file-step'));
+    var uf_step_index = $(allSteps).index($('#upload-file-step'));
     function next_step_uf() {
         stepComplete($('#upload-file-step').get());
         unlockNextStep(uf_step_index);
     }
     on_upload_file_done = next_step_uf;
 
-    let mn_step_index = $(allSteps).index($('#match-names-step'));
+    var mn_step_index = $(allSteps).index($('#match-names-step'));
     function next_step_mn() {
         stepComplete($('#match-names-step').get());
         unlockNextStep(mn_step_index);
@@ -117,11 +128,10 @@ $(function () {
     $('#skip-match-names').on('click', function () {
         next_step_mn();
     });
-    on_name_matching_OK = function () { // for no name matching support
-        next_step_mn();
-    };
+    on_name_matching_OK = next_step_mn;
+    onStepBegin[mn_step_index] = begin_match_names_step;
 
-    let mr_step_index = $(allSteps).index($('#match-rubric-step'));
+    var mr_step_index = $(allSteps).index($('#match-rubric-step'));
     function next_step_mr() {
         stepComplete($('#match-rubric-step').get());
         unlockNextStep(mr_step_index);
@@ -129,7 +139,8 @@ $(function () {
     on_rubric_matching_done = next_step_mr;
 });
 
-// IMPLEMENT EACH STEP
+// #endregion Steps Flow Rules
+// #region Implement Each Step
 
 // #backup-promise-step
 $('#backup-promise-step').children('input[type=checkbox]')
@@ -219,9 +230,9 @@ $(function () {
 
 // #upload-file-step
 let on_file_name_list_available;
-$('#upload-file-step').find('input[type=file]').on('mousedown',
+$('#upload-file-step').find('#csv-file-input').on('mousedown',
     (event) => {event.target.value = ""});
-$('#upload-file-step').find('input[type=file]').on('change',
+$('#upload-file-step').find('#csv-file-input').on('change',
     (event) => {
         let element = event.target;
         if (element.files.length !== 1) {
@@ -283,17 +294,17 @@ $('#upload-file-step').find('input[type=file]').on('change',
                     // Show error message, ask user to try again
                     if (error.sentAsResponse) {
                         $('#fperr-message-from-processing').show();
-                        $('#fperr-message-from-processing').children('#fp-text')
+                        $('#fperr-message-from-processing').children('.fp-text')
                             .html(error.errorMsg.split(/\r?\n/).join(`<br>`));
                     } else {
                         $('fperr-unexpected-err').show();
-                        $('fperr-unexpected-err').children('#fp-text')
+                        $('fperr-unexpected-err').children('.fp-text')
                             .html(error.errorMsg.split(/\r?\n/).join(`<br>`));
                     }
                     $('#file-process-error-message').show();
                 } else {
                     $('#file-process-success').show();
-                    $('#file-process-success').children('#fp-text')
+                    $('#file-process-success').children('.fp-text')
                         .html(
                             `<div class='row'>` +
                                 `<div class='col'> Number of students: ${fileStudentList.length} </div>` +
@@ -301,7 +312,7 @@ $('#upload-file-step').find('input[type=file]').on('change',
                             `</div>`
                         );
                     // When step is completely done, switch to the next step
-                    on_upload_file_done();
+                    setTimeout(on_upload_file_done, 1250);
                 }
             }
         );
@@ -310,7 +321,6 @@ $('#upload-file-step').find('input[type=file]').on('change',
 
 // #match-names-step
 on_file_name_list_available = async function () {
-
     const canvasStudentList = (await chrome.runtime.sendMessage({type: "studentNames"}))
                                                         .canvas_student_list;
     
@@ -335,33 +345,36 @@ on_file_name_list_available = async function () {
     } else {
         $("#unmatched-canvas ul").html("<i>none</i>");
     }
-    // hide Waiting for CSV...
-    $("#match-names-step-waiting").hide();
-    // reveal info
-    const infoRevealed = $("#match-student-names-display").slideDown().promise();
+
     if (unmatched_imported_strings.length === 0) {
         $("#match-student-names-complaint").hide();
 
         // we have now set mappings which apply only to this file, so this tab should no longer change the file used
-        $('#upload-file-step input[type=file]').prop('disabled', true);
+        $('#csv-file-input').prop('disabled', true);
     } else {
         $("#match-student-names-complaint").show();
 
         $('#upload-file-step').removeClass(class_name_completed);
     }
-    if (unmatched_imported_strings.length === 0) {
+};
+begin_match_names_step = function () {
+    // hide Waiting for file...
+    $("#match-names-step-waiting").hide();
+    // reveal info
+    const infoRevealed = $("#match-student-names-display").slideDown().promise();
+    if ($("#match-student-names-complaint").is(":hidden")) {
         infoRevealed.then(() => {
             // when done, send empty matchings to service worker
             chrome.runtime.sendMessage({
                 type: "studentMappings",
                 student_name_mappings_file_canvas: {} // ignore this feature for now
-            })
+            });
 
-            // switch to next step
             setTimeout(on_name_matching_OK, 1000);
         });
     }
-};
+}
+
 
 // #match-rubric-step
 $("#begin-matching-button").on('click', () => {
@@ -399,3 +412,139 @@ $("#execute-fill-all").on('click', () => {
         target: "all"
     });
 });
+
+// #endregion Implement Each Step
+// #region State save, load
+
+function generateState() {
+    return {
+        stepsClasses: allSteps.map((element) => ($(element).attr('class') ?? "").split(' ')),
+        backupPromise_value: $('#backup-promise-step').children('input[type=checkbox]').is(':checked'),
+        file_value:              $("#csv-file-input").val()
+                                    .length > 0 ? $("#csv-file-input").val()
+                                                : null,
+        fileProcessResult_state: $("#csv-file-input").val()
+                                    .length > 0 ? {
+                                                    elementID: $("#fperr-message-from-processing, #fperr-unexpected-err, #file-process-success")
+                                                                .has(":visible")
+                                                                .attr("id"),
+                                                    message: $(".fp-text").not(":empty").html()
+                                                  }
+                                                : null,
+        fileStudentList_value: fileStudentList ?? null,
+        rubricMatchCompleted: $("#match-rubric-step").hasClass(class_name_completed),
+        executeAllStudentsWarning: $("#execute-fill-all").parent().attr("data-after-title") !== $("#execute-fill-all").parent().attr("data-bs-title")
+    };
+}
+function setState(state) {
+    // console.log(state);
+
+    state.stepsClasses.forEach((elementClasses, i) => $(allSteps[i]).attr("class", elementClasses));
+    
+    if (state.backupPromise_value === true) {
+        $('#backup-promise-step').children('input[type=checkbox]').prop('checked', true);
+        $('#backup-promise-step').children('input[type=checkbox]').prop('disabled', true);
+    } else {
+        return;
+    }
+    
+    if (state.file_value && state.fileProcessResult_state && state.fileStudentList_value) {
+
+        // Display the selected filename by covering the element
+        let filename = state.file_value;
+        if (filename.slice(1, 1 +2) === String.raw`:\ `.trim()) {
+            filename = filename.split(String.raw`\ `.trim()).slice(-1)[0];
+        } else {
+            filename = filename.split('/').slice(-1)[0];
+        }
+        const real_file_input = $("#csv-file-input");
+        const wrapper_element = String.raw`<div id="wrapper-cfi-with-coverup" style="position: relative"></div>`;
+        const coverup_element = String.raw`<div id="cfi-coverup" style="display: flex;pointer-events: none;position: absolute;inset: 0;"><input type="text" class="form-control" style="border-right: 0; flex: 0 0; field-sizing: content; opacity: 0" placeholder="Choose File"><input type="text" value="${filename}" class="form-control" style="flex: 1 1; border-bottom-left-radius: 0; border-top-left-radius: 0"></div>`;
+        
+        console.assert(real_file_input.siblings('#cfi-coverup').length === 0);
+        
+        // Detach elements temporarily
+        let parent = real_file_input.parent();
+        let element_and_after = real_file_input.parent().children().slice(1).detach();
+        let element = element_and_after.slice(0, 1);
+        let and_after = element_and_after.slice(1);
+
+        // Add elements and reattach originals
+        parent.append(wrapper_element);
+        $("#wrapper-cfi-with-coverup").append(element);
+        $("#wrapper-cfi-with-coverup").append(coverup_element);
+        parent.append(and_after);
+
+        console.log($("#wrapper-cfi-with-coverup"));
+        console.log(element);
+
+        // Remove coverup element if the user manually selects a new file
+        // Note: we preserve #wrapper-cfi-with-coverup but that's okay because a new one can't be made without reloading the popup
+        real_file_input.one("change", () => {
+            $("#cfi-coverup").remove();
+        });
+
+        // fileProcessResult_state
+        let message_element = $(`#${state.fileProcessResult_state.elementID}`);
+        let message_html = state.fileProcessResult_state.message;
+
+        $("#fperr-message-from-processing, #fperr-unexpected-err, #file-process-success").hide();
+        message_element.show();
+
+        message_element.children('.fp-text').html(message_html);
+
+    } else { // No file was inputted yet
+        $("#csv-file-input").prop("disabled", false);
+        return;
+    }
+
+    // fileStudentList_value
+    fileStudentList = state.fileStudentList_value;
+    on_file_name_list_available();
+
+    // rubricMatchCompleted
+    console.assert(!state.rubricMatchCompleted || !$("#match-rubric-step").hasClass("user_still_locked"),
+                            "Got state which claims rubric match is completed, but user never unlocked that step");
+    if (state.rubricMatchCompleted && // If this is the first popup open since rubric match was completed
+        !$("#match-rubric-step").hasClass("user_completed")) { // then it was never marked as completed in front of the user
+            on_rubric_matching_done // Mark it completed in the popup UI
+        }
+
+    // executeAllStudentsWarning
+    if (!state.executeAllStudentsWarning) {
+        removeFillAllWarning();
+    }
+}
+function saveTabState() {
+    // send state to service worker
+    chrome.runtime.sendMessage({
+        type: "state",
+        action: "save",
+        state: generateState()
+    });
+}
+$($(function () {
+    // load state
+    chrome.runtime.sendMessage({
+        type: "state",
+        action: "load"
+    }).then(
+        (response) => {
+            if (response.state.new) {
+                return
+            } else {
+                setState(response.state);
+            }
+        }
+    );
+}));
+$('#tab-reset-button').on('click', () => {
+    chrome.runtime.sendMessage({
+        type: "state",
+        action: "clear"
+    }).then(
+        (complete) => location.reload()
+    );
+});
+
+// # endregion State
