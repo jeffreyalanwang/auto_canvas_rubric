@@ -1,24 +1,27 @@
 // #region <head> injection
+
 const style_tag = `<style id='acr-styles'>
+                    #acr_prompt_container {background-color: lightblue; height: 100%}
                     .acr-dim-around {box-shadow: 0 0 0 max(100vh, 100vw) rgba(0, 0, 0, .7)}
                     .acr-canvas-criteria-option:hover * {background-color: lightblue; cursor: pointer}
-                    .acr-canvas-criteria-taken * {background-color: gray}
+                    .acr-canvas-criteria-taken * {background-color: gray !important}
                    </style>`;
 $(function () {
     $("head").append(style_tag);
 });
 
-// #endregion style injection
+// #endregion <head> injection
 // #region utilities
 
 // Taken from StackOverflow
 // https://web.archive.org/web/20250314212800/https://stackoverflow.com/questions/40894637/how-to-programmatically-fill-input-elements-built-with-react
+// Modified because getOwnPropertyDescriptor of an element doesn't seem to be accessible from an extension script?
 function setValueReact(element, value) {
-    const valueSetter = Object.getOwnPropertyDescriptor(element, 'value').set;
+    const valueSetter = ( Object.getOwnPropertyDescriptor(element, 'value') ?? {set: undefined} ).set;
     const prototype = Object.getPrototypeOf(element);
     const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
 
-    if (valueSetter && valueSetter !== prototypeValueSetter) {
+    if ( !valueSetter || (valueSetter && valueSetter !== prototypeValueSetter) ) {
         prototypeValueSetter.call(element, value);
     } else {
         valueSetter.call(element, value);
@@ -29,6 +32,7 @@ function assertCanvasElementVisible(el) {
     if (!$(el).has(":visible")) {
         console.warn(`Working with a Canvas element that is not visible. Element: ${el}`);
     }
+    // TODO go back to the old Element Visible checker
 }
 
 // List students
@@ -45,19 +49,29 @@ function studentList() {
 // Select student
 // name examples: "Test Student", "St. Patrick's Day"
 function switchToStudent(name) {
+    let foundStudent = false;
     $("#students_selectmenu-menu > li").find(".ui-selectmenu-item-header")
         .each((_, el) => {
             if ($(el).text().replaceAll("\n", "").trim() === name) {
-                $(el).trigger('mouseup');
-                return false;
+                $(el).get(0).dispatchEvent(new Event("mouseup", {bubbles: true}));
+                foundStudent = true;
+                return false; // short-circuit the loop
             }
         });
+    if (!foundStudent) {
+        console.error(`Unable to find student to switch to. Student name: ${name}`);
+    }
+}
+
+function currentStudentName() {
+    const value = $("#students_selectmenu-button").find('.ui-selectmenu-item-header').text();
+    return value.trim();
 }
 
 // Check if there is a rubric on this page.
 // TODO Also check if rubric is an Enhanced Rubric, then add as requirement to extension popup
 function isRubricPresent() {
-    return $(".rubric_container.rubric").is(":visible").length > 0;
+    return $(".rubric_container.rubric").is(":visible");
 }
 
 // Get array of rubric rows (assumes an open, editable rubric) as JQuery object
@@ -77,21 +91,21 @@ function rubricRowsSummary() {
 
 // Open rubric
 function openRubric() {
-    button_to_press = $("button.toggle_full_rubric").get()[0];
+    const button_to_press = $("button.toggle_full_rubric").get()[0];
     assertCanvasElementVisible(button_to_press);
     button_to_press.click();
 }
 // Save rubric + close
 function saveRubric() {
-    button_to_press = $("button.save_rubric_button").get()[0];
+    const button_to_press = $("button.save_rubric_button").get()[0];
     assertCanvasElementVisible(button_to_press);
     button_to_press.click();
 }
 // Hit the "Cancel" button, do not complain if it is not open to begin with
 function closeRubricNoSave() {
-    button_to_press = $("button.hide_rubric_link").get()[0];
-    if ($(button_to_press).has(":visible"));
-    button_to_press.click();
+    const button_to_press = $("button.hide_rubric_link").get()[0];
+    if ($(button_to_press).is(":visible"))
+        button_to_press.click();
 }
 
 // Returns [backStudentButton, nextStudentButton]
@@ -100,8 +114,11 @@ function cycleStudentButtons() {
 }
 
 // Hit the Next Student button until we get one who has a rubric (in case some students have no submission and, as a result, possibly no rubric)
+// TODO this doesn't work. must be an ajax call or similar.
+// TODO also, I don't know if clicking the cycleStudentButtons is working
 async function cycleStudentUntilRubric() {
-    for (let i = 0; i < studentList.length; i++) {
+    const studentCount = studentList().length;
+    for (let i = 0; i < studentCount; i++) {
         // await page load
         const pageLoad = new Promise((resolve) => $(resolve));
         await pageLoad;
@@ -120,8 +137,8 @@ async function cycleStudentUntilRubric() {
 function dimExcept(element, elementStopCondition) {
     let curr = $(element);
     curr.addClass("acr-dim-around");
-    while (!elementStopCondition) {
-        curr.siblings().css("opacity", .2);
+    while (!elementStopCondition(curr)) {
+        curr.siblings().css("opacity", .01);
         curr = curr.parent();
         if (curr.prop("tagName") == "BODY") {
             console.error("Must have traversed too far");
@@ -131,7 +148,7 @@ function dimExcept(element, elementStopCondition) {
 function undoDimExcept(element, elementStopCondition) {
     let curr = $(element);
     curr.removeClass("acr-dim-around");
-    while (!elementStopCondition) {
+    while (!elementStopCondition(curr)) {
         curr.siblings().css("opacity", 1);
         curr = curr.parent();
         if (curr.prop("tagName") == "BODY") {
@@ -159,13 +176,15 @@ function setPoints(criteriaIndex, score) {
     let element = getPointsTextInput(getEditingCriteriaRow(criteriaIndex));
     assertCanvasElementVisible(element);
     setValueReact(element, score);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 // #endregion utilities
 // #region routines
 
-async function rubricMatching (criteria_nicknames) {
+let casualties;
+
+async function rubricMatching(criteria_nicknames) {
     console.assert(Array.isArray(criteria_nicknames));
     cycleStudentUntilRubric();
     closeRubricNoSave();
@@ -177,15 +196,15 @@ async function rubricMatching (criteria_nicknames) {
 
     // Highlight non-taken criteria rows when under user's mouse
     let clickedRubricRow;
-    rubricRowsSummary().each((i) => {
-        $(this).addClass("acr-canvas-criteria-option");
-        $(this).on( 'click', clickedRubricRow(i, $(this)) );
+    rubricRowsSummary().each((i, el) => {
+        $(el).addClass("acr-canvas-criteria-option");
+        $(el).on( 'click', () => clickedRubricRow(i, $(el)) );
     });
     
     // Create an area to hold prompt (display criteria nickname)
     const promptBackdrop = $("#left_side_inner");
-    let casualties = promptBackdrop.children().detach();
-    const promptContainerStr = String.raw`<div id="acr_prompt_container" style="padding: 2rem;">
+    casualties = promptBackdrop.children().detach();
+    const promptContainerStr = String.raw`<div id="acr_prompt_container" class="acr-rubric-matching" style="padding: 2rem;">
                                             <h1>Select a rubric row to to the right for the current criterion:</h1>
                                             <table cellpadding="10"><tbody id="promptRows_parent">
                                             <!-- doneRow, currentRow, todoRow goes here-->
@@ -210,7 +229,7 @@ async function rubricMatching (criteria_nicknames) {
                                     </td>
                                     <td>
                                       <h2 style="font-size: 1.5rem; font-weight:bold">
-                                        ← Current
+                                        ← For this criterion
                                       </h2>
                                     </td>
                                   </tr>`;
@@ -244,7 +263,7 @@ async function rubricMatching (criteria_nicknames) {
             canvas_rubric_row_indices[i] = rowIndex;
             // change this [left-side] row to a doneRow
             $("#promptRows_parent").children().eq(i)
-                .replaceWith( doneRow( criteria_nicknames[i], rowIndex, rowObject_jq.find('th').find('span').text() ) );
+                .replaceWith( doneRow( criteria_nicknames[i], rowIndex+1, rowObject_jq.find('th').find('span').text() ) );
             // change selected [right-side] criteria row
             rowObject_jq.removeClass("acr-canvas-criteria-option");
             rowObject_jq.addClass("acr-canvas-criteria-taken");
@@ -256,27 +275,96 @@ async function rubricMatching (criteria_nicknames) {
         await user_selection;
     }
 
-    // Remove [left-side] prompt info
-    $("#acr_prompt_container").remove();
-    // Reattach [left-side] collateral damage
-    promptBackdrop.append(casualties);
-    // Remove the 2 [right-side] row classes, on('click') events
-    rubricRowsSummary().each(() => {
-        rowObject_jq.removeClass("acr-canvas-criteria-option");
-        rowObject_jq.removeClass("acr-canvas-criteria-taken");
-        $(this).off('click');
+    // Remove 1 of the 2 [right-side] row classes, on('click') events
+    rubricRowsSummary().each((_, el) => {
+        $(el).removeClass("acr-canvas-criteria-option");
+        $(el).off('click');
     });
-    // Remove [right-side] dimming, element opacity
-    undoDimExcept(rubric, (element) => $(element).attr("id") == "rightside_inner");
+
+    await new Promise((resolve) => setTimeout(resolve, 750));
+
+    // Undo our changes after the user gets some time to view, if they want, but get the popup back open first
+    setTimeout(() => {
+        // Remove [left-side] prompt info
+        const promptExternallyRemoved = $("#acr_prompt_container.acr-rubric-matching").length < 1;
+        $("#acr_prompt_container.acr-rubric-matching").remove();
+        // Reattach [left-side] collateral damage
+        if (!promptExternallyRemoved) promptBackdrop.append(casualties); // otherwise it will be added by the other remover
+        // Remove other of the 2 [right-side] row classes
+        rubricRowsSummary().each((_, el) => {
+            $(el).removeClass("acr-canvas-criteria-taken");
+        });
+        // Remove [right-side] dimming, element opacity
+        undoDimExcept(rubric, (element) => $(element).attr("id") == "rightside_inner");
+    }, 9000);
+    
     // Return array
     return canvas_rubric_row_indices;
+    // TODO (unrelated) on page refresh make sure we clear tab service worker state
+}
+
+async function fillRubric(student_name, scoreForCanvasRow) {
+    console.assert(student_name); // make sure we didn't accidentially pass null or undefined.
+                          // Value of empty string is defined behavior (=> call is for current student).
+
+    if (student_name.length !== 0) {
+        switchToStudent(student_name);
+    }
+
+    // display status info for user while this happens
+    const promptBackdrop = $("#left_side_inner");
+    if ($("#acr_prompt_container.acr-rubric-matching").length > 0) {
+        $("#acr_prompt_container.acr-rubric-matching").remove();
+    } else {
+        casualties = promptBackdrop.children().detach();
+    }
+
+    const promptContainerStr = String.raw`<div id="acr_prompt_container" class="acr-rubric-filling" style="padding: 2rem;"></div>`;
+    promptBackdrop.append(promptContainerStr);
+
+    const promptElementsStr = String.raw`   <h1>Filling rubric for student: ${student_name}</h1>
+                                            <i>Scores to fill, by rubric row:</i>
+                                            <ol id="acr_score_data_expo"></ol>
+                                        `;
+    $("#acr_prompt_container").append(promptElementsStr);
+
+    let liElementsStr = '';
+    for (let i = 0; i < scoreForCanvasRow.length; i++) {
+        const score = scoreForCanvasRow[i] ?? "";
+        const singleLiElementStr = String.raw`<li>${score}</li>`;
+        liElementsStr += singleLiElementStr;
+    }
+    $("#acr_score_data_expo").append(liElementsStr);
+
+    openRubric();
+    $("#acr_prompt_container").find('h1').css("color", "green");
+
+    scoreForCanvasRow.forEach(
+        (score, index) => {
+            if (!score) return;
+            console.assert( (typeof score !== 'string' || score.length > 0) &&
+                            (score === '--' || !isNaN(+score)) );
+            setPoints(index, score);
+        }
+    );
+
+    saveRubric();
+
+    // remove status info
+    $("#acr_prompt_container.acr-rubric-filling").remove();
+    promptBackdrop.append(casualties);
 }
 
 // #endregion routines
 // #region Extension messaging
 
-// On page load, provide service worker with the list of student names
-$( () => setTimeout(() => chrome.runtime.sendMessage({student_list: studentList()}), 10000) );
+chrome.runtime.onMessage.addListener(
+    function(request, sender, sendResponse) {
+        if (request.type === "studentNames") {
+            sendResponse({student_list: studentList()});
+        }
+    }
+);
 
 // Rubric Matching
 // receive: {
@@ -288,9 +376,7 @@ $( () => setTimeout(() => chrome.runtime.sendMessage({student_list: studentList(
 // }
 chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse) {
-        if (messageSenderType(sender) === -1 &&
-            request.type === "initiateCanvasRubricMatching")
-        {
+        if (request.type === "initiateCanvasRubricMatching") {
             rubricMatching(request.file_criteria_strings)
             .then(
                 (returnValue) => sendResponse({
@@ -298,10 +384,79 @@ chrome.runtime.onMessage.addListener(
                 })
             );
             return true;
-            
+        }
+    }
+);
+
+// Rubric Filling - Single
+// receive: {
+//     type: "executeRubricFill_single",
+//     student: {
+//        choice_type: 'switch_to_student' || 'current_student' || 'skip',
+//        name_string: file_student_name
+//     }
+//     scores: [score1, score2, ...]
+//     rubric_row_indices: canvasRubricRows[]
+// }
+// return: {
+//     success: true || false,
+//     errorMsg: string || unset
+// }
+chrome.runtime.onMessage.addListener(
+    function(request, sender, sendResponse) {
+        if (request.type === "executeRubricFill_single") {
+            let student_name = "";
+            switch (request.student.choice_type) {
+                case 'switch_to_student':
+                    student_name = request.student.name_string;
+                    console.assert(student_name.length > 0);
+                case 'current_student':
+                    break;
+                case 'skip':
+                    console.error("Skip-student request received."); // Should be removed in service worker
+                    break;
+                default:
+                    console.error(`Invalid choice type ${request.student.choice_type}`);
+            }
+            console.assert(Array.isArray(request.scores), request);
+            console.assert(Array.isArray(request.rubric_row_indices), request);
+            console.assert(request.scores.length === request.rubric_row_indices.length, request);
+            let scoreForCanvasRow = []; // TODO assert the length always <= the number of canvas rubric rows
+            request.scores.map((score, i) => {
+                const canvasRowIndex = request.rubric_row_indices[i];
+                scoreForCanvasRow[canvasRowIndex] = score;
+            });
+            fillRubric(student_name, scoreForCanvasRow)
+            .then(
+                () => sendResponse({success: true})
+            ).catch(
+                (e) => sendResponse({errorMsg: e})
+            );
+            return true;
+        }
+    }
+);
+
+// Helper - which student is opened right now? (to fill current student only)
+// receive: {
+//     type: "getOpenedStudentName"
+// }
+// return: {
+//     result: retVal
+// }
+chrome.runtime.onMessage.addListener(
+    function(request, sender, sendResponse) {
+        if (request.type === "getOpenedStudentName") {
+            sendResponse({
+                result: currentStudentName()
+            });
         }
     }
 );
 
 // #endregion Extension messaging
+
+// TODO make sure content script is loaded right after extension refresh... and look into how it might not be started if this page is entered via AJAX call or similar
+console.log("content script loaded");
+
 // TODO assert that the total points increased that much

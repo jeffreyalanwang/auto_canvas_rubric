@@ -312,7 +312,7 @@ $('#upload-file-step').find('#csv-file-input').on('change',
                             `</div>`
                         );
                     // When step is completely done, switch to the next step
-                    setTimeout(on_upload_file_done, 1250);
+                    setTimeout(on_upload_file_done, 1000);
                 }
             }
         );
@@ -398,6 +398,9 @@ $("#execute-fill-testStudent").on('click', () => {
         type: "executeRubricFill",
         target: "testStudent"
     });
+
+    // close popup
+    window.close();
 });
 $("#execute-fill-currStudent").on('click', () => {
     removeFillAllWarning();
@@ -405,12 +408,18 @@ $("#execute-fill-currStudent").on('click', () => {
         type: "executeRubricFill",
         target: "curr"
     });
+
+    // close popup
+    window.close();
 });
 $("#execute-fill-all").on('click', () => {
     chrome.runtime.sendMessage({
         type: "executeRubricFill",
         target: "all"
     });
+
+    // close popup
+    window.close();
 });
 
 // #endregion Implement Each Step
@@ -420,36 +429,38 @@ function generateState() {
     return {
         stepsClasses: allSteps.map((element) => ($(element).attr('class') ?? "").split(' ')),
         backupPromise_value: $('#backup-promise-step').children('input[type=checkbox]').is(':checked'),
-        file_value:              $("#csv-file-input").val()
-                                    .length > 0 ? $("#csv-file-input").val()
-                                                : null,
-        fileProcessResult_state: $("#csv-file-input").val()
-                                    .length > 0 ? {
-                                                    elementID: $("#fperr-message-from-processing, #fperr-unexpected-err, #file-process-success")
-                                                                .has(":visible")
-                                                                .attr("id"),
-                                                    message: $(".fp-text").not(":empty").html()
-                                                  }
-                                                : null,
+        file_value: ( $('#cfi-coverup').length < 1 ) // Is the file input's text coverup present?
+                        ? ( $("#csv-file-input").val().length > 0 ) // Is there a file?
+                            ? $("#csv-file-input").val()
+                            : null // No file was found
+                        : $('#cfi-coverup').children('input').eq(1).val(), // If coverup, there's definitely a file
+        fileProcessResult_state: ( $('#cfi-coverup').length > 0 || $("#csv-file-input").val().length > 0 )
+                                            ? {
+                                                elementID: $("#fperr-message-from-processing, #fperr-unexpected-err, #file-process-success")
+                                                            .has(":visible")
+                                                            .attr("id"),
+                                                message: $(".fp-text").not(":empty").html()
+                                                }
+                                            : null,
         fileStudentList_value: fileStudentList ?? null,
         rubricMatchCompleted: $("#match-rubric-step").hasClass(class_name_completed),
         executeAllStudentsWarning: $("#execute-fill-all").parent().attr("data-after-title") !== $("#execute-fill-all").parent().attr("data-bs-title")
     };
 }
 function setState(state) {
-    // console.log(state);
+    console.log(state);
 
     state.stepsClasses.forEach((elementClasses, i) => $(allSteps[i]).attr("class", elementClasses));
-    
+
     if (state.backupPromise_value === true) {
         $('#backup-promise-step').children('input[type=checkbox]').prop('checked', true);
         $('#backup-promise-step').children('input[type=checkbox]').prop('disabled', true);
     } else {
         return;
-    }
+    } // TODO what if you open the popup during rubric matching? or rubric filling?
     
     if (state.file_value && state.fileProcessResult_state && state.fileStudentList_value) {
-
+        
         // Display the selected filename by covering the element
         let filename = state.file_value;
         if (filename.slice(1, 1 +2) === String.raw`:\ `.trim()) {
@@ -475,9 +486,6 @@ function setState(state) {
         $("#wrapper-cfi-with-coverup").append(coverup_element);
         parent.append(and_after);
 
-        console.log($("#wrapper-cfi-with-coverup"));
-        console.log(element);
-
         // Remove coverup element if the user manually selects a new file
         // Note: we preserve #wrapper-cfi-with-coverup but that's okay because a new one can't be made without reloading the popup
         real_file_input.one("change", () => {
@@ -488,27 +496,46 @@ function setState(state) {
         let message_element = $(`#${state.fileProcessResult_state.elementID}`);
         let message_html = state.fileProcessResult_state.message;
 
+        $("#file-process-spinner").hide()
         $("#fperr-message-from-processing, #fperr-unexpected-err, #file-process-success").hide();
         message_element.show();
 
         message_element.children('.fp-text').html(message_html);
+
+        $("#file-post-selection-info").show();
+
+        // fileStudentList_value
+        fileStudentList = state.fileStudentList_value;
+        on_file_name_list_available();
+        $("#match-names-step-waiting").hide();
+        $("#match-student-names-display").slideDown();
 
     } else { // No file was inputted yet
         $("#csv-file-input").prop("disabled", false);
         return;
     }
 
-    // fileStudentList_value
-    fileStudentList = state.fileStudentList_value;
-    on_file_name_list_available();
+    // TODO implement to keep track of whether to highlight 'Open Rubric' (i.e. state.nameMatchCompleted)
 
     // rubricMatchCompleted
     console.assert(!state.rubricMatchCompleted || !$("#match-rubric-step").hasClass("user_still_locked"),
                             "Got state which claims rubric match is completed, but user never unlocked that step");
-    if (state.rubricMatchCompleted && // If this is the first popup open since rubric match was completed
-        !$("#match-rubric-step").hasClass("user_completed")) { // then it was never marked as completed in front of the user
-            on_rubric_matching_done // Mark it completed in the popup UI
-        }
+
+    if (!state.rubricMatchCompleted) {
+        $("#match-rubric-step").find("button").prop('disabled', false);
+        return;
+    } else {
+        // If this is the first popup open since rubric match was completed,
+        // then it was never marked as completed in front of the user.
+        if ( !$("#match-rubric-step").hasClass("user_completed") ) {
+            on_rubric_matching_done(); // Mark it completed in the popup UI
+        } else {
+            $("#execution-step").find("button").prop('disabled', false);
+        }        
+    }
+
+    // TODO scroll on both state restore and in general when steps are completed!
+    // TODO not state related but allow "open rubric" to be selected again.
 
     // executeAllStudentsWarning
     if (!state.executeAllStudentsWarning) {
@@ -548,3 +575,4 @@ $('#tab-reset-button').on('click', () => {
 });
 
 // # endregion State
+// TODO the matchstudentnames step does not scroll

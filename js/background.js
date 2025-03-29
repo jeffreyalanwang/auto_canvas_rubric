@@ -1,18 +1,18 @@
 import { parse as csvToRowList } from "./node/csv.min.js";
 
 // Store stateful info in service worker
-const studentLists = {}; // TODO convert all these to map
-const rubricGradebooks = {};
-const studentMappings = {};
-const popupStates = {};
+var rubricGradebooks = {};
+var studentMappings = {};
+var popupStates = {};
 
 async function getCurrentTab() {
-  const out = await chrome.tabs.query({currentWindow: true, active: true});
+  const windowId = (await chrome.windows.getLastFocused({windowTypes: ['normal']})).id;
+  const out = await chrome.tabs.query({windowId: windowId, active: true});
   console.assert(out.length === 1, `Got ${out.length} active tabs: ${out}`);
   return out[0];
 }
 async function getCurrentTabID() {
-  return await getCurrentTab.id;
+  return (await getCurrentTab()).id;
 }
 
 // -2: content script
@@ -82,44 +82,41 @@ chrome.runtime.onMessage.addListener(
 
 
 // POPUP NEEDS LIST OF STUDENTS
-// Upon request from popup, send cached student_list
+// Upon request from popup,
 let content_script_request_studentNames;
 chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
     if (messageSenderType(sender) === -1 &&
         request.type === "studentNames")
     {
-      getCurrentTabID().then(
-        (tab_id) => {
-          if (!studentLists[tab_id]) {
-            console.warn("studentList was not found");
-            console.warn(studentLists);
-          }
-          if (studentLists[tab_id] && studentLists[tab_id].length === 0) {
-            console.warn("studentList was found to be stored, but was length 0");
-            console.warn(studentLists);
-          }
-          sendResponse({
-            canvas_student_list: studentLists[tab_id]
-          });
-        }
-      );
-      return true;
+      content_script_request_studentNames(sendResponse);
+      return true; // We will call sendResponse after async calls
     }
   }
 );
-
-// Upon content script providing it: cache student_list
-chrome.runtime.onMessage.addListener(
-  function(request, sender, sendResponse) {
-    if (messageSenderType(sender) >= 0 &&
-        request.studentList) {
-      console.log(`Got studentList message ${request}`);
-      studentLists[sender.tab.id] = request.student_list;
-      return false; // Let Chrome know we don't need sendResponse in this listener
-    }
+// Request content script:
+// * get list of students
+let popup_script_return_studentNames;
+content_script_request_studentNames = async function (sendResponse) {
+  const content_script_tab_id = await getCurrentTabID();
+  const response = await chrome.tabs.sendMessage(content_script_tab_id, {
+    type: "studentNames"
+  });
+  // make sure we haven't changed tabs since the request was made
+  if (content_script_tab_id !== await getCurrentTabID()) {
+    const sending_tab = await chrome.tabs.get(content_script_tab_id);
+    console.log(`Received studentNames but the sending tab is not the active tab. Sending tab info: ${sending_tab}`);
+  } else {
+    const studentNames = response.student_list;
+    popup_script_return_studentNames(studentNames, sendResponse);
   }
-);
+};
+// Return list to popup
+popup_script_return_studentNames = function (studentNames, sendResponse) {
+  sendResponse({
+    'canvas_student_list': studentNames
+  });
+};
 
 // PROCESS FILE & RETURN METADATA
 // Upon message from popup,
@@ -263,19 +260,21 @@ popup_script_return_file_metadata = function ({studentList, criteriaCount, error
 }
 
 function mapped_student_obj(file_student_name, tab_id) {
-  if (rubricGradebooks[tab_id].rubricScores.keys().includes(file_student_name)) { // No need for mapping
+  console.assert(tab_id, `${tab_id}`);
+
+  if (file_student_name === null) { // Student that is open in current tab
+    return {
+      choice_type: 'current_student',
+    };
+  } else if (rubricGradebooks[tab_id]['rubricScores'].keys().some( (key) => (key===file_student_name) )) { // No need for mapping
     return {
       choice_type: 'switch_to_student',
       name_string: file_student_name
     };
-  } else if (studentMappings[tab_id].keys().includes(file_student_name)) { // Process mapping
+  } else if (studentMappings[tab_id].keys().some( (key) => (key===file_student_name) )) { // Process mapping
     return {
       choice_type: 'switch_to_student',
       name_string: studentMappings[tab_id].get(file_student_name)
-    };
-  } else if (file_student_name === null) { // Student that is open in current tab
-    return {
-      choice_type: 'current_student',
     };
   } else { // User chose to ignore
     console.log(`Ignoring student ${file_student_name} as user has not matched them to a Canvas student name`);
@@ -298,8 +297,8 @@ chrome.runtime.onMessage.addListener(
   }
 );
 // Store in service worker
-service_worker_store_studentMappings = function (student_name_mappings_file_canvas) {
-  studentMappings[getCurrentTab().id] = student_name_mappings_file_canvas;
+service_worker_store_studentMappings = async function (student_name_mappings_file_canvas) {
+  studentMappings[await getCurrentTabID()] = student_name_mappings_file_canvas;
 }
 
 // FILE/CANVAS CRITERIA MATCHING
@@ -318,15 +317,14 @@ chrome.runtime.onMessage.addListener(
 // Request content script:
 // * file-to-canvas matching
 let service_worker_save_file_canvas_mapping;
-content_script_request_rubric_matching = function () {
-  const content_script_tab_id = getCurrentTab().id;
-  chrome.tabs.sendMessage(content_script_tab_id, { // TODO implement request origin checks in content script and popup
-    type: "initiateCanvasRubricMatching",
-    file_criteria_strings: rubricGradebooks['content_script_tab_id'].criteria
-  }).then(function (message) {
-    const canvas_rubric_indices = message.criteria_canvas_rubric_row_indices;
-    service_worker_save_file_canvas_mapping(canvas_rubric_indices, content_script_tab_id);
-  });
+content_script_request_rubric_matching = async function () {
+  const content_script_tab_id = await getCurrentTabID();
+  const message = await chrome.tabs.sendMessage(content_script_tab_id, { // TODO implement request origin checks in content script and popup
+                                                                    type: "initiateCanvasRubricMatching",
+                                                                    file_criteria_strings: rubricGradebooks[content_script_tab_id].criteria
+                                                                 });
+  const canvas_rubric_indices = message.criteria_canvas_rubric_row_indices;
+  service_worker_save_file_canvas_mapping(canvas_rubric_indices, content_script_tab_id);
 };
 // Store matches of file criteria strings to rubric criteria indices
 let popup_open_at_rubric_match_finished;
@@ -347,13 +345,12 @@ chrome.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
     if (messageSenderType(sender) === -1 &&
         request.type === "executeRubricFill") {
-      const curr_tab_id = getCurrentTab().id;
       let student_selection = null;
       switch (request.target) {
         case "testStudent":
           student_selection = "Test Student";
         case "curr":
-          content_script_execute_rubric_fill_single(student_selection, curr_tab_id);
+          content_script_execute_rubric_fill_single(student_selection);
           break;
         case "batch":
           student_selection = request.studentNames;
@@ -361,7 +358,7 @@ chrome.runtime.onMessage.addListener(
                         `request.studentNames is ${typeof request.studentNames}, not an array.` +
                         `Actual: ${request.studentNames}`);
         case "all":
-          content_script_execute_rubric_fill_batch(student_selection, curr_tab_id);
+          content_script_execute_rubric_fill_batch(student_selection);
           break;
         default:
           console.error(`Invalid rubric fill target: ${request.target}`);
@@ -373,12 +370,14 @@ chrome.runtime.onMessage.addListener(
 // Request content script:
 // * fill in a student, or
 // * fill in all students
-content_script_execute_rubric_fill_single = async function (studentName, tab_id) {
+content_script_execute_rubric_fill_single = async function (studentName) {
+  const tab_id = await getCurrentTabID();
   const mapped_student = mapped_student_obj(studentName, tab_id);
-  const rubricScores = rubricGradebooks[tab_id].rubricScores[mapped_student.name_string];
+  const mapped_student_name = mapped_student.name_string ?? ( await chrome.tabs.sendMessage(tab_id, {type: "getOpenedStudentName"}) ).result;
+  const rubricScores = rubricGradebooks[tab_id].rubricScores.get(mapped_student_name);
   const canvasRubricRows = rubricGradebooks[tab_id].canvas_rubric_indices;
 
-  console.assert(typeof rubricScores[0] !== 'object');
+  console.assert(typeof rubricScores.values().next().value !== 'object');
   console.assert(rubricScores.length === canvasRubricRows.length,
                  `Arrays do not match in length.\n` +
                  `rubricScores: ${rubricScores}\n` +
@@ -390,10 +389,12 @@ content_script_execute_rubric_fill_single = async function (studentName, tab_id)
                             scores: rubricScores,
                             rubric_row_indices: canvasRubricRows
                           }); // TODO in content script, have page display a header to indicate that the action is running
-  console.assert(response.success, response.errorMsg);
+  console.assert(response.success, JSON.stringify(response.errorMsg));
   return {success: response.success, errorMsg: response.errorMsg};
 }
-content_script_execute_rubric_fill_batch = async function (studentNames, tab_id) {
+content_script_execute_rubric_fill_batch = async function (studentNames) {
+  const tab_id = await getCurrentTabID();
+
   if (studentNames === null) {
     studentNames = rubricGradebooks[tab_id].rubricScores.keys();
   } else {
@@ -402,10 +403,11 @@ content_script_execute_rubric_fill_batch = async function (studentNames, tab_id)
                       .filter((student_obj) => (student_obj.choice_type !== 'skip'))
                     .map((student_obj) => student_obj.name_string);
   }
+  studentNames = Array.from(studentNames);
 
-  const rubricScores = rubricGradebooks[curr_tab_id].rubricScores
+  const rubricScores = rubricGradebooks[tab_id].rubricScores
                           .entries() // unpack, filter, repack
-                            .filter(([key, value]) => key in request.studentNames)
+                            .filter(([key, value]) => studentNames.some((x) => (x === key)))
                           .reduce((accumulator, [key, value]) => accumulator.set(key, value), new Map());
   const canvasRubricRows = rubricGradebooks[tab_id].canvas_rubric_indices;
 
@@ -413,21 +415,22 @@ content_script_execute_rubric_fill_batch = async function (studentNames, tab_id)
   let failure_responses = [];
   for (const studentName of studentNames) {
     most_recent_studentName = studentName;
-    const response = await chrome.tabs.sendMessage(tab_id, {
+    let response = await chrome.tabs.sendMessage(tab_id, {
       type: "executeRubricFill_single",
       student: mapped_student_obj(studentName, tab_id),
-      scores: rubricScores[studentName],
+      scores: rubricScores.get(studentName),
       rubric_row_indices: canvasRubricRows
     }); // TODO in content script, have page display a header to indicate that the action is running
-    if (!response.success) {
+    if (!response || !response.success) {
+      response = response ?? {};
       response['student_name'] = studentName;
-      response['tab_id'] = content_script_tab_id;
+      response['tab_id'] = tab_id;
       response['tab'] = await chrome.tabs.get(tab_id);
-      response['scores'] = rubricScores[studentName];
+      response['scores'] = rubricScores.get(studentName);
       response['rubric_row_indices'] = canvasRubricRows;
       failure_responses.push(response);
     }
-    console.assert(response.success, response.errorMsg);
+    console.assert(response && response.success, response);
   }
 
   return {
