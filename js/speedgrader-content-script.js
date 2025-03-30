@@ -29,10 +29,9 @@ function setValueReact(element, value) {
 }
 
 function assertCanvasElementVisible(el) {
-    if (!$(el).has(":visible")) {
+    if (!$(el).has(":visible") || $(el).height() <= 0) {
         console.warn(`Working with a Canvas element that is not visible. Element: ${el}`);
     }
-    // TODO go back to the old Element Visible checker
 }
 
 // List students
@@ -108,31 +107,6 @@ function closeRubricNoSave() {
         button_to_press.click();
 }
 
-// Returns [backStudentButton, nextStudentButton]
-function cycleStudentButtons() {
-    return [$('#prev-student-button'), $('#next-student-button')];
-}
-
-// Hit the Next Student button until we get one who has a rubric (in case some students have no submission and, as a result, possibly no rubric)
-// TODO this doesn't work. must be an ajax call or similar.
-// TODO also, I don't know if clicking the cycleStudentButtons is working
-async function cycleStudentUntilRubric() {
-    const studentCount = studentList().length;
-    for (let i = 0; i < studentCount; i++) {
-        // await page load
-        const pageLoad = new Promise((resolve) => $(resolve));
-        await pageLoad;
-
-        if (isRubricPresent())
-            return;
-        else {
-            // Load next student
-            cycleStudentButtons()[1].trigger('click');
-        }
-    }
-    console.error(`Cycled through all ${studentList.length} students but didn't find a submission for which SpeedGrader presented a rubric.`);
-}
-
 // Dim the area around element within the nearest parent that satisfies elementStopCondition.
 function dimExcept(element, elementStopCondition) {
     let curr = $(element);
@@ -186,7 +160,6 @@ let casualties;
 
 async function rubricMatching(criteria_nicknames) {
     console.assert(Array.isArray(criteria_nicknames));
-    cycleStudentUntilRubric();
     closeRubricNoSave();
 
     const rubric = $(".rubric_container.rubric.rubric_summary");
@@ -296,7 +269,7 @@ async function rubricMatching(criteria_nicknames) {
         });
         // Remove [right-side] dimming, element opacity
         undoDimExcept(rubric, (element) => $(element).attr("id") == "rightside_inner");
-    }, 9000);
+    }, 3000);
     
     // Return array
     return canvas_rubric_row_indices;
@@ -306,6 +279,7 @@ async function rubricMatching(criteria_nicknames) {
 async function fillRubric(student_name, scoreForCanvasRow) {
     console.assert(student_name); // make sure we didn't accidentially pass null or undefined.
                           // Value of empty string is defined behavior (=> call is for current student).
+    console.assert(scoreForCanvasRow.length <= rubricRowsAssessing().length, `More values were found in scoreForCanvasRow (${scoreForCanvasRow.length}), which stores values by index of rubric row, than number of actual Canvas rubric rows (${rubricRowsAssessing().length}).`);
 
     if (student_name.length !== 0) {
         switchToStudent(student_name);
@@ -421,7 +395,7 @@ chrome.runtime.onMessage.addListener(
             console.assert(Array.isArray(request.scores), request);
             console.assert(Array.isArray(request.rubric_row_indices), request);
             console.assert(request.scores.length === request.rubric_row_indices.length, request);
-            let scoreForCanvasRow = []; // TODO assert the length always <= the number of canvas rubric rows
+            let scoreForCanvasRow = [];
             request.scores.map((score, i) => {
                 const canvasRowIndex = request.rubric_row_indices[i];
                 scoreForCanvasRow[canvasRowIndex] = score;
@@ -456,7 +430,4 @@ chrome.runtime.onMessage.addListener(
 
 // #endregion Extension messaging
 
-// TODO make sure content script is loaded right after extension refresh... and look into how it might not be started if this page is entered via AJAX call or similar
 console.log("content script loaded");
-
-// TODO assert that the total points increased that much

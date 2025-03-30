@@ -35,6 +35,8 @@ body {
     flex-basis: auto;
     flex-wrap: nowrap;
     flex-direction: column;
+
+    position: relative;
 }
 
 #vertical-page-flex > h1 {
@@ -85,11 +87,13 @@ ol.landing-steps li p i {
     margin-bottom: 0;
 }
 
+ul.list-ignored-student-matcher, ul.list-matched-students {
+    max-height: 30vh;
+}
 ul.list-ignored-student-matcher li, ul.list-matched-students li {
     font-size: small;
     opacity: 1;
-}
-ul.list-ignored-student-matcher li, ul.list-matched-students li {
+    
     margin-top: 0;
 }
 ul.list-ignored-student-matcher.overflow-fade-scroll::before, ul.list-ignored-student-matcher.overflow-fade-scroll::after,
@@ -221,4 +225,11 @@ td.table-ellipsis {
     0%   {background-position:-150% 0,-150% 0}
     66%  {background-position: 250% 0,-150% 0}
     100% {background-position: 250% 0, 250% 0}
+}
+
+.error-msg {
+    margin-top: 2rem;
+    position: absolute;
+    top: 0;
+    width: 100%;
 }

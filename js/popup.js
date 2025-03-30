@@ -40,6 +40,8 @@ $(function () {
 // #endregion JS visual inits
 // #region Misc script-level vars
 let fileStudentList;
+let rubricMatchInitiated = false;
+let rubricFillInitiated = false;
 // #endregion Misc script-level vars
 // #region Steps Flow Rules - Utilities
 
@@ -71,6 +73,10 @@ function unlockNextStep(current_step_index) {
     if ($(nextStep).hasClass(class_name_completed)) {
         $(nextStep).removeClass(class_name_completed);
     }
+    nextStep.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+    });
     onStepBegin[current_step_index + 1]();
     saveTabState();
 }
@@ -383,14 +389,20 @@ $("#begin-matching-button").on('click', () => {
         type: "initiateCanvasRubricMatching"
     });
 
+    rubricMatchInitiated = true;
+    saveTabState();
+
     // close popup
     window.close();
 });
 
 // #execution-step
 function removeFillAllWarning() {
-    let nonwarning_message = $("#execute-fill-all").attr("data-after-title");
-    $("#execute-fill-all").attr("data-bs-title", nonwarning_message);
+    $("#execute-fill-all").removeClass('btn-outline-warning').addClass('btn-warning');
+    let nonwarning_message = $("#execute-fill-all").parent().attr("data-after-title");
+    $("#execute-fill-all").parent().attr("data-bs-title", nonwarning_message)
+        .tooltip('dispose')
+        .tooltip('update');
 }
 $("#execute-fill-testStudent").on('click', () => {
     removeFillAllWarning();
@@ -398,6 +410,9 @@ $("#execute-fill-testStudent").on('click', () => {
         type: "executeRubricFill",
         target: "testStudent"
     });
+
+    rubricFillInitiated = true;
+    saveTabState();
 
     // close popup
     window.close();
@@ -409,6 +424,9 @@ $("#execute-fill-currStudent").on('click', () => {
         target: "curr"
     });
 
+    rubricFillInitiated = true;
+    saveTabState();
+
     // close popup
     window.close();
 });
@@ -417,6 +435,9 @@ $("#execute-fill-all").on('click', () => {
         type: "executeRubricFill",
         target: "all"
     });
+
+    rubricFillInitiated = true;
+    saveTabState();
 
     // close popup
     window.close();
@@ -443,21 +464,41 @@ function generateState() {
                                                 }
                                             : null,
         fileStudentList_value: fileStudentList ?? null,
+        nameMatchCompleted: $("#match-names-step").hasClass(class_name_completed),
+        rubricMatchInitiated: rubricMatchInitiated, // only reflects if initiated on last popup open
         rubricMatchCompleted: $("#match-rubric-step").hasClass(class_name_completed),
-        executeAllStudentsWarning: $("#execute-fill-all").parent().attr("data-after-title") !== $("#execute-fill-all").parent().attr("data-bs-title")
+        executeAllStudentsWarning: $("#execute-fill-all").parent().attr("data-after-title") !== $("#execute-fill-all").parent().attr("data-bs-title"),
+        rubricFillInitiated: rubricFillInitiated
     };
 }
 function setState(state) {
     console.log(state);
 
     state.stepsClasses.forEach((elementClasses, i) => $(allSteps[i]).attr("class", elementClasses));
+    const visualExecuteAfterSetState = function () {
+        allSteps.find((value, i, array) => {
+            if (i + 1 === array.length) {
+                return true;
+            }
+            
+            if ($(array[i + 1]).hasClass('user_still_locked')) {
+                return true;
+            }
+    
+            return false;
+        }).scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    }
+    setTimeout(visualExecuteAfterSetState, 400);
 
     if (state.backupPromise_value === true) {
         $('#backup-promise-step').children('input[type=checkbox]').prop('checked', true);
         $('#backup-promise-step').children('input[type=checkbox]').prop('disabled', true);
     } else {
         return;
-    } // TODO what if you open the popup during rubric matching? or rubric filling?
+    }
     
     if (state.file_value && state.fileProcessResult_state && state.fileStudentList_value) {
         
@@ -515,14 +556,24 @@ function setState(state) {
         return;
     }
 
-    // TODO implement to keep track of whether to highlight 'Open Rubric' (i.e. state.nameMatchCompleted)
+    if (!state.nameMatchCompleted) {
+        return;
+    } else {
+        $("#match-rubric-step").find("button").prop('disabled', false);
+    }
 
-    // rubricMatchCompleted
+    // rubricMatchInitiated, rubricMatchCompleted
     console.assert(!state.rubricMatchCompleted || !$("#match-rubric-step").hasClass("user_still_locked"),
                             "Got state which claims rubric match is completed, but user never unlocked that step");
-
     if (!state.rubricMatchCompleted) {
-        $("#match-rubric-step").find("button").prop('disabled', false);
+        if (!state.rubricMatchInitiated) {
+            return;
+        } else {
+            // nameMatchCompleted but rubricMatch not completed ===> we are currently rubricMatching
+            rubricMatchInitiated = true;
+            $("#match-rubric-step").find("button").prop('disabled', true);
+            $("#match-rubric-step").find("button").parent().append(String.raw`<label for="begin-matching-button" style="color: green; padding: var(--bs-btn-padding-y) var(--bs-btn-padding-x)">In progress</label>`);
+        }
         return;
     } else {
         // If this is the first popup open since rubric match was completed,
@@ -531,15 +582,51 @@ function setState(state) {
             on_rubric_matching_done(); // Mark it completed in the popup UI
         } else {
             $("#execution-step").find("button").prop('disabled', false);
-        }        
+        }
     }
-
-    // TODO scroll on both state restore and in general when steps are completed!
-    // TODO not state related but allow "open rubric" to be selected again.
 
     // executeAllStudentsWarning
     if (!state.executeAllStudentsWarning) {
         removeFillAllWarning();
+    }
+
+    // rubricFillInitiated, rubricFill_returnStatus
+    if (!state.rubricFillInitiated) {
+        return; // if you are going to put anything after the following if statement, you need to modify this and put the next statement in an else block
+    }
+    if (state.rubricFill_returnStatus === "success") {
+        // show: Rubric Fill succeeded.
+        let popup = String.raw` <div class="error-msg alert alert-success alert-dismissible fade show" role="alert">
+                                    <strong>Rubric filling succeeded</strong>
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div> `;
+        $('#vertical-page-flex').append(popup);
+    } else if (!state.rubricFill_returnStatus) {
+        // show error: rubricFill no return info
+        let popup = String.raw` <div class="error-msg alert alert-danger alert-dismissible fade show" role="alert">
+                                    <strong>Error during rubric filling:</strong> No return status received from content worker script.
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div> `
+        $('#vertical-page-flex').append(popup);
+    } else {
+        if (state.rubricFill_returnStatus.errorMsg) {
+            console.error(state.rubricFill_returnStatus.errorMsg);
+            let popup = String.raw` <div class="error-msg alert alert-danger alert-dismissible fade show" role="alert">
+                                        <strong>Error during rubric filling:</strong> ${state.rubricFill_returnStatus.errorMsg}<br>
+                                        View more details in this popup's JavaScript console.
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div> `
+            $('#vertical-page-flex').append(popup);
+        } else {
+            let popup = String.raw` <div class="error-msg alert alert-danger alert-dismissible fade show" role="alert">
+                                        <strong>Error during rubric filling:</strong><br>
+                                        ${state.rubricFill_returnStatus.errors}<br>
+                                        Last student to be filled: ${state.rubricFill_returnStatus.furthest_executed}<br>
+                                        View more details in this popup's JavaScript console.
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div> `
+            $('#vertical-page-flex').append(popup);
+        }
     }
 }
 function saveTabState() {
@@ -575,4 +662,3 @@ $('#tab-reset-button').on('click', () => {
 });
 
 // # endregion State
-// TODO the matchstudentnames step does not scroll

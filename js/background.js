@@ -319,7 +319,7 @@ chrome.runtime.onMessage.addListener(
 let service_worker_save_file_canvas_mapping;
 content_script_request_rubric_matching = async function () {
   const content_script_tab_id = await getCurrentTabID();
-  const message = await chrome.tabs.sendMessage(content_script_tab_id, { // TODO implement request origin checks in content script and popup
+  const message = await chrome.tabs.sendMessage(content_script_tab_id, {
                                                                     type: "initiateCanvasRubricMatching",
                                                                     file_criteria_strings: rubricGradebooks[content_script_tab_id].criteria
                                                                  });
@@ -334,7 +334,7 @@ service_worker_save_file_canvas_mapping = function (canvas_rubric_indices, tab_i
 }
 popup_open_at_rubric_match_finished = function (tab_id) {
   popupStates[tab_id].rubricMatchCompleted = true;
-  chrome.action.openPopup();
+  setTimeout(chrome.action.openPopup, 1750);
 }
 
 // EXECUTE RUBRIC FILL
@@ -370,6 +370,7 @@ chrome.runtime.onMessage.addListener(
 // Request content script:
 // * fill in a student, or
 // * fill in all students
+let popup_open_at_rubric_fill_finished;
 content_script_execute_rubric_fill_single = async function (studentName) {
   const tab_id = await getCurrentTabID();
   const mapped_student = mapped_student_obj(studentName, tab_id);
@@ -384,13 +385,17 @@ content_script_execute_rubric_fill_single = async function (studentName) {
                  `canvasRubricRows: ${canvasRubricRows}`);
 
   const response = await chrome.tabs.sendMessage(tab_id, {
-                            type: "executeRubricFill_single", // TODO implement in content script
+                            type: "executeRubricFill_single",
                             student: mapped_student,
                             scores: rubricScores,
                             rubric_row_indices: canvasRubricRows
-                          }); // TODO in content script, have page display a header to indicate that the action is running
+                          });
   console.assert(response.success, JSON.stringify(response.errorMsg));
-  return {success: response.success, errorMsg: response.errorMsg};
+  
+  popup_open_at_rubric_fill_finished(tab_id, {
+    success: response.success,
+    errorMsg: response.errorMsg
+  });
 }
 content_script_execute_rubric_fill_batch = async function (studentNames) {
   const tab_id = await getCurrentTabID();
@@ -420,7 +425,7 @@ content_script_execute_rubric_fill_batch = async function (studentNames) {
       student: mapped_student_obj(studentName, tab_id),
       scores: rubricScores.get(studentName),
       rubric_row_indices: canvasRubricRows
-    }); // TODO in content script, have page display a header to indicate that the action is running
+    });
     if (!response || !response.success) {
       response = response ?? {};
       response['student_name'] = studentName;
@@ -433,10 +438,30 @@ content_script_execute_rubric_fill_batch = async function (studentNames) {
     console.assert(response && response.success, response);
   }
 
-  return {
+  popup_open_at_rubric_fill_finished(tab_id, {
     success: failure_responses.length === 0,
     errors: (failure_responses.length === 0) ? undefined
                                              : failure_responses,
     furthest_executed: most_recent_studentName
-  };
+  });
+}
+// Reopen popup
+popup_open_at_rubric_fill_finished = function (tab_id, return_status) {
+  if (return_status.success) {
+    popupStates[tab_id].rubricFill_returnStatus = "success";
+  } else {
+    if (return_status.errorMsg) {
+      popupStates[tab_id].rubricFill_returnStatus = {
+        errorMsg: return_status.errorMsg
+      };
+    }
+    if (return_status.errors) {
+      popupStates[tab_id].rubricFill_returnStatus = {
+        errors: return_status.errors,
+        furthest_executed: return_status.furthest_executed
+      }
+    }
+  }
+  
+  setTimeout(chrome.action.openPopup, 1000);
 }
