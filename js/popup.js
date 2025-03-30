@@ -37,6 +37,14 @@ $(function () {
     $('#match-student-names-display').hide();
 });
 
+$(function () {
+    $("#bug_report_link")
+    .on('click', (event) => {
+        const link = $("#bug_report_link").attr('href');
+        chrome.tabs.create({active: true, url: link});
+    });
+});
+
 // #endregion JS visual inits
 // #region Misc script-level vars
 let fileStudentList;
@@ -132,6 +140,10 @@ $(function () {
         unlockNextStep(mn_step_index);
     }
     $('#skip-match-names').on('click', function () {
+        chrome.runtime.sendMessage({
+            type: "studentMappings",
+            student_name_mappings_file_canvas: {} // ignore this feature for now
+        });
         next_step_mn();
     });
     on_name_matching_OK = next_step_mn;
@@ -604,7 +616,8 @@ function setState(state) {
     } else if (!state.rubricFill_returnStatus) {
         // show error: rubricFill no return info
         let popup = String.raw` <div class="error-msg alert alert-danger alert-dismissible fade show" role="alert">
-                                    <strong>Error during rubric filling:</strong> No return status received from content worker script.
+                                    <strong>Error during rubric filling:</strong> No return status received from content worker script.<br>
+                                    Or, you might have just opened this popup before rubric filling is complete. (Be patient!)
                                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                 </div> `
         $('#vertical-page-flex').append(popup);

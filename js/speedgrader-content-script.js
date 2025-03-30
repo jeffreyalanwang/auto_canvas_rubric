@@ -1,7 +1,7 @@
 // #region <head> injection
 
 const style_tag = `<style id='acr-styles'>
-                    #acr_prompt_container {background-color: lightblue; height: 100%}
+                    #acr_prompt_container {background-color: lightblue; height: 100%; overflow: scroll}
                     .acr-dim-around {box-shadow: 0 0 0 max(100vh, 100vw) rgba(0, 0, 0, .7)}
                     .acr-canvas-criteria-option:hover * {background-color: lightblue; cursor: pointer}
                     .acr-canvas-criteria-taken * {background-color: gray !important}
@@ -30,7 +30,8 @@ function setValueReact(element, value) {
 
 function assertCanvasElementVisible(el) {
     if (!$(el).has(":visible") || $(el).height() <= 0) {
-        console.warn(`Working with a Canvas element that is not visible. Element: ${el}`);
+        console.warn(`Working with a Canvas element that is not visible. Element:`);
+        console.warn(el);
     }
 }
 
@@ -78,6 +79,7 @@ function rubricRowsAssessing() {
     let rubric = $('.rubric_container.rubric.assessing')
     assertCanvasElementVisible(rubric);
     let jQueryList = rubric.find("[data-testid=rubric-criterion]");
+    console.assert(jQueryList.length > 0, `${rubric}`);
     return jQueryList;
 }
 // Get array of rubric rows (assumes a "closed" rubric) as JQuery object
@@ -85,6 +87,7 @@ function rubricRowsSummary() {
     let rubric = $('.rubric_container.rubric.rubric_summary')
     assertCanvasElementVisible(rubric);
     let jQueryList = rubric.find("[data-testid=rubric-criterion]");
+    console.assert(jQueryList.length > 0);
     return jQueryList;
 }
 
@@ -279,11 +282,12 @@ async function rubricMatching(criteria_nicknames) {
 async function fillRubric(student_name, scoreForCanvasRow) {
     console.assert(student_name); // make sure we didn't accidentially pass null or undefined.
                           // Value of empty string is defined behavior (=> call is for current student).
-    console.assert(scoreForCanvasRow.length <= rubricRowsAssessing().length, `More values were found in scoreForCanvasRow (${scoreForCanvasRow.length}), which stores values by index of rubric row, than number of actual Canvas rubric rows (${rubricRowsAssessing().length}).`);
 
     if (student_name.length !== 0) {
         switchToStudent(student_name);
     }
+
+    console.assert(scoreForCanvasRow.length <= rubricRowsAssessing().length, `For student ${student_name}, more values were found in scoreForCanvasRow (${scoreForCanvasRow.length}), which stores values by index of rubric row, than number of actual Canvas rubric rows (${rubricRowsAssessing().length}).`);
 
     // display status info for user while this happens
     const promptBackdrop = $("#left_side_inner");
@@ -311,7 +315,7 @@ async function fillRubric(student_name, scoreForCanvasRow) {
     $("#acr_score_data_expo").append(liElementsStr);
 
     openRubric();
-    $("#acr_prompt_container").find('h1').css("color", "green");
+    await new Promise((r) => setTimeout(r, 750)); // let the browser breathe
 
     scoreForCanvasRow.forEach(
         (score, index) => {

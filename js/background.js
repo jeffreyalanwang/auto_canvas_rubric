@@ -4,6 +4,7 @@ import { parse as csvToRowList } from "./node/csv.min.js";
 var rubricGradebooks = {};
 var studentMappings = {};
 var popupStates = {};
+var canvasStudentLists = {};
 
 async function getCurrentTab() {
   const windowId = (await chrome.windows.getLastFocused({windowTypes: ['normal']})).id;
@@ -108,6 +109,7 @@ content_script_request_studentNames = async function (sendResponse) {
     console.log(`Received studentNames but the sending tab is not the active tab. Sending tab info: ${sending_tab}`);
   } else {
     const studentNames = response.student_list;
+    canvasStudentLists[content_script_tab_id] = studentNames;
     popup_script_return_studentNames(studentNames, sendResponse);
   }
 };
@@ -266,12 +268,12 @@ function mapped_student_obj(file_student_name, tab_id) {
     return {
       choice_type: 'current_student',
     };
-  } else if (rubricGradebooks[tab_id]['rubricScores'].keys().some( (key) => (key===file_student_name) )) { // No need for mapping
+  } else if (canvasStudentLists[tab_id].includes(file_student_name)) { // No need for mapping
     return {
       choice_type: 'switch_to_student',
       name_string: file_student_name
     };
-  } else if (studentMappings[tab_id].keys().some( (key) => (key===file_student_name) )) { // Process mapping
+  } else if (Object.keys(studentMappings[tab_id]).some( (key) => (key===file_student_name) )) { // Process mapping
     return {
       choice_type: 'switch_to_student',
       name_string: studentMappings[tab_id].get(file_student_name)
@@ -334,7 +336,7 @@ service_worker_save_file_canvas_mapping = function (canvas_rubric_indices, tab_i
 }
 popup_open_at_rubric_match_finished = function (tab_id) {
   popupStates[tab_id].rubricMatchCompleted = true;
-  setTimeout(chrome.action.openPopup, 1750);
+  setTimeout(chrome.action.openPopup, 1250);
 }
 
 // EXECUTE RUBRIC FILL
@@ -402,12 +404,12 @@ content_script_execute_rubric_fill_batch = async function (studentNames) {
 
   if (studentNames === null) {
     studentNames = rubricGradebooks[tab_id].rubricScores.keys();
-  } else {
-    studentNames = studentNames
-                    .map((name_string) => mapped_student_obj(name_string, tab_id))
-                      .filter((student_obj) => (student_obj.choice_type !== 'skip'))
-                    .map((student_obj) => student_obj.name_string);
   }
+  studentNames = studentNames
+                  .map((name_string) => mapped_student_obj(name_string, tab_id))
+                    .filter((student_obj) => (student_obj.choice_type !== 'skip'))
+                  .map((student_obj) => student_obj.name_string);
+  
   studentNames = Array.from(studentNames);
 
   const rubricScores = rubricGradebooks[tab_id].rubricScores
@@ -420,6 +422,7 @@ content_script_execute_rubric_fill_batch = async function (studentNames) {
   let failure_responses = [];
   for (const studentName of studentNames) {
     most_recent_studentName = studentName;
+    console.log(`Executing rubric fill for student ${studentName}`);
     let response = await chrome.tabs.sendMessage(tab_id, {
       type: "executeRubricFill_single",
       student: mapped_student_obj(studentName, tab_id),
@@ -436,6 +439,7 @@ content_script_execute_rubric_fill_batch = async function (studentNames) {
       failure_responses.push(response);
     }
     console.assert(response && response.success, response);
+    await new Promise((r) => setTimeout(r, 2500)); // give the browser some time to breathe
   }
 
   popup_open_at_rubric_fill_finished(tab_id, {
