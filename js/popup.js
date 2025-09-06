@@ -228,7 +228,7 @@ $(function () {
         let isCanvas1 = (curr_tab_domain[0] !== "www" && curr_tab_domain[0] !== "") &&
                          curr_tab_domain[1] === "instructure" &&
                          curr_tab_domain[2] === "com";
-        let isCanvas2 =  curr_tab_domain[0] === "canvas" &&
+        let isCanvas2 = (curr_tab_domain[0] === "canvas" || curr_tab_domain[0] === "instructure") &&
                         (curr_tab_domain[1] !== "instructure" && curr_tab_domain[1] !== "") &&
                          curr_tab_domain[2] !== "";
         let isCanvas = isCanvas1 || isCanvas2;
