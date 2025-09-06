@@ -280,7 +280,7 @@ async function rubricMatching(criteria_nicknames) {
 }
 
 async function fillRubric(student_name, scoreForCanvasRow) {
-    console.assert(student_name); // make sure we didn't accidentially pass null or undefined.
+    console.assert(student_name || student_name === ""); // make sure we didn't accidentially pass null or undefined.
                           // Value of empty string is defined behavior (=> call is for current student).
 
     if (student_name.length !== 0) {

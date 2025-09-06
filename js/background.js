@@ -380,18 +380,32 @@ content_script_execute_rubric_fill_single = async function (studentName) {
   const rubricScores = rubricGradebooks[tab_id].rubricScores.get(mapped_student_name);
   const canvasRubricRows = rubricGradebooks[tab_id].canvas_rubric_indices;
 
+  if (!rubricScores) {
+    await new Promise(r => setTimeout(r, 1000)); // wait until new state is received from popup messaging
+    popup_open_at_rubric_fill_finished(tab_id, {
+      success: false,
+      errorMsg: `Student with name ${mapped_student_name} has no rubric scores imported.`
+    });
+    return;
+  }
   console.assert(typeof rubricScores.values().next().value !== 'object');
-  console.assert(rubricScores.length === canvasRubricRows.length,
-                 `Arrays do not match in length.\n` +
-                 `rubricScores: ${rubricScores}\n` +
-                 `canvasRubricRows: ${canvasRubricRows}`);
+  if (rubricScores.length !== canvasRubricRows.length) {
+    await new Promise(r => setTimeout(r, 1000)); // wait until new state is received from popup messaging
+    popup_open_at_rubric_fill_finished(tab_id, {
+      success: false,
+      errorMsg: `Arrays do not match in length.\n` +
+                `rubricScores: ${rubricScores}\n` +
+                `canvasRubricRows: ${canvasRubricRows}`
+    });
+    return;
+  }
 
   const response = await chrome.tabs.sendMessage(tab_id, {
-                            type: "executeRubricFill_single",
-                            student: mapped_student,
-                            scores: rubricScores,
-                            rubric_row_indices: canvasRubricRows
-                          });
+                          type: "executeRubricFill_single",
+                          student: mapped_student,
+                          scores: rubricScores,
+                          rubric_row_indices: canvasRubricRows
+                        });
   console.assert(response.success, JSON.stringify(response.errorMsg));
   
   popup_open_at_rubric_fill_finished(tab_id, {
